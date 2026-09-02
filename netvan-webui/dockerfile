@@ -1,0 +1,10 @@
+FROM node:22-bookworm
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+EXPOSE 8001
+
+CMD ["sh", "-c", "if [ ! -f node_modules/vite/package.json ]; then npm ci; fi; exec npm run dev -- --host 0.0.0.0 --port 8001"]

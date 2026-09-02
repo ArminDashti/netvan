@@ -1,0 +1,6 @@
+.git
+.armin
+node_modules
+dist
+dev-dist
+agent-logs
