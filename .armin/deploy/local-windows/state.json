@@ -1,0 +1,13 @@
+{
+  "stack_name": "netvan",
+  "service_name": "netvan-api",
+  "installed": false,
+  "ports": {
+    "api": 8000,
+    "webui": 8001
+  },
+  "binary_path": "",
+  "data_dir": "C:\\ProgramData\\Netvan\\NetvanApi",
+  "webui_pid": null,
+  "notes": "install.ps1 sets installed=true and fills binary_path after a successful install/update."
+}
