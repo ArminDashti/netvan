@@ -35,7 +35,7 @@ Run without waiting to be asked when you changed:
 ## When not to run
 
 1. Docs-only, comments-only, or unused files
-2. **netvan-webui**-only edits (Vite hot-reload; no Windows service)
+2. **netvan-webui**-only edits (cold rebuild/run WebUI per `rebuild-edited-section-only.mdc`; no Windows service)
 3. You already ran this script successfully in the same turn for the same change
 4. Foreground debug only (`cargo run -- run`) when the user explicitly asked not to touch the Windows service
 
