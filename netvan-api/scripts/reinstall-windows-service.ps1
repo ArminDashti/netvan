@@ -12,16 +12,43 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
-$Exe = Join-Path $RepoRoot "target\release\netvan-api.exe"
+function Get-InstalledRustTargets {
+  $raw = & rustup target list --installed 2>$null
+  if ($LASTEXITCODE -ne 0 -or -not $raw) { return @() }
+  return @($raw | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+}
 
-Write-Host "==> cargo build -p netvan-api --release"
-cargo build -p netvan-api --release
+function Resolve-ApiCargoTarget {
+  $installed = Get-InstalledRustTargets
+  $gnu = 'x86_64-pc-windows-gnu'
+  $msvc = 'x86_64-pc-windows-msvc'
+  if ($installed -contains $gnu) { return $gnu }
+  if ($installed -contains $msvc) { return $msvc }
+  return $msvc
+}
+
+function Find-ApiBinary {
+  $candidates = @(
+    (Join-Path $RepoRoot 'target\release\netvan-api.exe'),
+    (Join-Path $RepoRoot 'target\x86_64-pc-windows-gnu\release\netvan-api.exe'),
+    (Join-Path $RepoRoot 'target\x86_64-pc-windows-msvc\release\netvan-api.exe')
+  )
+  foreach ($c in $candidates) {
+    if (Test-Path -LiteralPath $c) { return (Resolve-Path -LiteralPath $c).Path }
+  }
+  return $null
+}
+
+$target = Resolve-ApiCargoTarget
+Write-Host "==> cargo build -p netvan-api --release --target $target"
+cargo build -p netvan-api --release --target $target
 if ($LASTEXITCODE -ne 0) {
   throw "cargo build failed with exit code $LASTEXITCODE"
 }
 
-if (-not (Test-Path $Exe)) {
-  throw "Missing binary: $Exe"
+$Exe = Find-ApiBinary
+if (-not $Exe) {
+  throw "Missing binary under target/*/release/netvan-api.exe"
 }
 
 Write-Host "==> stop (ignore if not running)"

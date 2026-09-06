@@ -31,6 +31,11 @@ fn fallback_empty() -> HardwareInventory {
             model: String::new(),
             size_bytes: 0,
             speed_mhz: None,
+            modules: 0,
+            module_size_bytes: None,
+            memory_type: String::new(),
+            form_factor: String::new(),
+            configured_speed_mhz: None,
         },
         disks: Vec::new(),
         gpus: Vec::new(),
@@ -80,16 +85,29 @@ fn split_brand_model(full: &str, known_brands: &[&str]) -> (String, String) {
         return (String::new(), String::new());
     }
     let lower = trimmed.to_lowercase();
+    // Prefer longest brand match so "WDC" wins over "WD", etc.
+    let mut best: Option<&str> = None;
     for brand in known_brands {
         let b = brand.to_lowercase();
+        let hits = lower.starts_with(&b)
+            && (lower.len() == b.len()
+                || lower.as_bytes().get(b.len()).is_some_and(|c| !c.is_ascii_alphanumeric()));
+        let contains_word = lower.split(|c: char| !c.is_ascii_alphanumeric()).any(|p| p == b);
+        if hits || (lower.starts_with(&b) && b.len() >= 3) || contains_word {
+            if best.map(|cur| brand.len() > cur.len()).unwrap_or(true) {
+                best = Some(*brand);
+            }
+        }
+    }
+    if let Some(brand) = best {
+        let b = brand.to_lowercase();
         if lower.starts_with(&b) {
-            let rest = trimmed[brand.len()..].trim().trim_start_matches([' ', '-', '_']);
-            return (brand.to_string(), rest.to_string());
+            let rest = trimmed[brand.len()..]
+                .trim()
+                .trim_start_matches([' ', '-', '_']);
+            return (brand.to_string(), if rest.is_empty() { trimmed.to_string() } else { rest.to_string() });
         }
-        if lower.contains(&b) {
-            // e.g. "Intel(R) Core(TM) ..."
-            return ((*brand).to_string(), trimmed.to_string());
-        }
+        return (brand.to_string(), trimmed.to_string());
     }
     // First token as brand, rest as model
     let mut parts = trimmed.splitn(2, char::is_whitespace);
@@ -119,15 +137,13 @@ fn disk_kind_from_model(model: &str, media_type: Option<&str>) -> DiskKind {
 
 fn parse_disk_brand_model(model: &str) -> (String, String) {
     const BRANDS: &[&str] = &[
-        "Samsung",
         "Western Digital",
-        "WD",
+        "Samsung",
         "Seagate",
         "Crucial",
         "Micron",
         "Kingston",
         "SanDisk",
-        "Intel",
         "SK hynix",
         "Hynix",
         "Toshiba",
@@ -137,10 +153,39 @@ fn parse_disk_brand_model(model: &str) -> (String, String) {
         "Apple",
         "Corsair",
         "ADATA",
+        "Lexar",
         "Team",
         "PNY",
+        "Intel",
+        "WDC",
+        "WD",
     ];
     split_brand_model(model, BRANDS)
+}
+
+fn smbios_memory_type(code: Option<u16>) -> String {
+    match code {
+        Some(20) => "DDR".into(),
+        Some(21) => "DDR2".into(),
+        Some(22) => "DDR2 FB-DIMM".into(),
+        Some(24) => "DDR3".into(),
+        Some(26) => "DDR4".into(),
+        Some(34) => "DDR5".into(),
+        Some(18) => "DDR".into(),
+        Some(19) => "DDR2".into(),
+        _ => String::new(),
+    }
+}
+
+fn memory_form_factor(code: Option<u16>) -> String {
+    match code {
+        Some(8) => "DIMM".into(),
+        Some(12) => "SODIMM".into(),
+        Some(9) => "TSOP".into(),
+        Some(13) => "SRIMM".into(),
+        Some(10) => "Row of chips".into(),
+        _ => String::new(),
+    }
 }
 
 #[cfg(windows)]
@@ -176,6 +221,10 @@ mod win {
         speed: Option<u32>,
         #[serde(rename = "ConfiguredClockSpeed")]
         configured_clock_speed: Option<u32>,
+        #[serde(rename = "FormFactor")]
+        form_factor: Option<u16>,
+        #[serde(rename = "SMBIOSMemoryType")]
+        smbios_memory_type: Option<u16>,
     }
 
     #[derive(Deserialize, Debug, Default)]
@@ -188,6 +237,12 @@ mod win {
         media_type: Option<String>,
         #[serde(rename = "InterfaceType")]
         interface_type: Option<String>,
+        #[serde(rename = "SerialNumber")]
+        serial_number: Option<String>,
+        #[serde(rename = "Partitions")]
+        partitions: Option<u32>,
+        #[serde(rename = "FirmwareRevision")]
+        firmware_revision: Option<String>,
     }
 
     #[derive(Deserialize, Debug, Default)]
@@ -261,7 +316,7 @@ mod win {
 
     fn collect_memory(wmi: &WMIConnection) -> Result<MemoryInfo> {
         let rows: Vec<Win32PhysicalMemory> = wmi.raw_query(
-            "SELECT Manufacturer, PartNumber, Capacity, Speed, ConfiguredClockSpeed FROM Win32_PhysicalMemory",
+            "SELECT Manufacturer, PartNumber, Capacity, Speed, ConfiguredClockSpeed, FormFactor, SMBIOSMemoryType FROM Win32_PhysicalMemory",
         )?;
         if rows.is_empty() {
             return Ok(MemoryInfo {
@@ -269,19 +324,36 @@ mod win {
                 model: String::new(),
                 size_bytes: 0,
                 speed_mhz: None,
+                modules: 0,
+                module_size_bytes: None,
+                memory_type: String::new(),
+                form_factor: String::new(),
+                configured_speed_mhz: None,
             });
         }
         let mut total = 0u64;
-        let mut speed = None;
+        let mut rated_speed = None;
+        let mut configured_speed = None;
         let mut brand = String::new();
         let mut model = String::new();
+        let mut memory_type = String::new();
+        let mut form_factor = String::new();
+        let mut sizes: Vec<u64> = Vec::new();
         for row in &rows {
-            total += row.capacity.unwrap_or(0);
-            let sp = row.configured_clock_speed.or(row.speed);
-            if speed.is_none() {
-                speed = sp;
-            } else if let (Some(a), Some(b)) = (speed, sp) {
-                speed = Some(a.max(b));
+            let cap = row.capacity.unwrap_or(0);
+            total += cap;
+            if cap > 0 {
+                sizes.push(cap);
+            }
+            if rated_speed.is_none() {
+                rated_speed = row.speed;
+            } else if let (Some(a), Some(b)) = (rated_speed, row.speed) {
+                rated_speed = Some(a.max(b));
+            }
+            if configured_speed.is_none() {
+                configured_speed = row.configured_clock_speed;
+            } else if let (Some(a), Some(b)) = (configured_speed, row.configured_clock_speed) {
+                configured_speed = Some(a.max(b));
             }
             if brand.is_empty() {
                 brand = row
@@ -294,7 +366,21 @@ mod win {
             if model.is_empty() {
                 model = row.part_number.as_deref().unwrap_or("").trim().to_string();
             }
+            if memory_type.is_empty() {
+                memory_type = smbios_memory_type(row.smbios_memory_type);
+            }
+            if form_factor.is_empty() {
+                form_factor = memory_form_factor(row.form_factor);
+            }
         }
+        let module_size_bytes = if !sizes.is_empty() && sizes.iter().all(|&s| s == sizes[0]) {
+            Some(sizes[0])
+        } else {
+            None
+        };
+        // Rated vs configured clocks (UI can show both).
+        let speed_mhz = rated_speed;
+        let configured_speed_mhz = configured_speed;
         // Normalize common OEM memory brand strings
         let brand_norm = if brand.is_empty() || brand.eq_ignore_ascii_case("unknown") {
             String::new()
@@ -305,13 +391,19 @@ mod win {
             brand: brand_norm,
             model,
             size_bytes: total,
-            speed_mhz: speed,
+            speed_mhz,
+            modules: rows.len() as u32,
+            module_size_bytes,
+            memory_type,
+            form_factor,
+            configured_speed_mhz,
         })
     }
 
     fn collect_disks(wmi: &WMIConnection) -> Result<Vec<DiskInfo>> {
-        let rows: Vec<Win32DiskDrive> =
-            wmi.raw_query("SELECT Model, Size, MediaType, InterfaceType FROM Win32_DiskDrive")?;
+        let rows: Vec<Win32DiskDrive> = wmi.raw_query(
+            "SELECT Model, Size, MediaType, InterfaceType, SerialNumber, Partitions, FirmwareRevision FROM Win32_DiskDrive",
+        )?;
         let mut out = Vec::new();
         for row in rows {
             let full_model = row.model.unwrap_or_default().trim().to_string();
@@ -332,13 +424,13 @@ mod win {
                 &full_model,
                 row.media_type.as_deref(),
             );
-            if let Some(iface) = row.interface_type.as_deref() {
-                if iface.eq_ignore_ascii_case("SCSI") && full_model.to_lowercase().contains("nvme") {
-                    kind = DiskKind::Ssd;
-                }
-                if iface.to_lowercase().contains("nvme") {
-                    kind = DiskKind::Ssd;
-                }
+            let interface_type = row.interface_type.clone().unwrap_or_default();
+            if interface_type.eq_ignore_ascii_case("SCSI") && full_model.to_lowercase().contains("nvme")
+            {
+                kind = DiskKind::Ssd;
+            }
+            if interface_type.to_lowercase().contains("nvme") {
+                kind = DiskKind::Ssd;
             }
             out.push(DiskInfo {
                 brand: if brand.is_empty() {
@@ -353,6 +445,19 @@ mod win {
                 },
                 capacity_bytes: capacity,
                 kind,
+                interface_type,
+                media_type: row.media_type.unwrap_or_default().trim().to_string(),
+                serial_number: row
+                    .serial_number
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string(),
+                partitions: row.partitions,
+                firmware_revision: row
+                    .firmware_revision
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string(),
             });
         }
         Ok(out)

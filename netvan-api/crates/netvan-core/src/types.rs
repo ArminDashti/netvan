@@ -263,6 +263,21 @@ pub struct MemoryInfo {
     pub model: String,
     pub size_bytes: u64,
     pub speed_mhz: Option<u32>,
+    /// Installed DIMM / SODIMM count.
+    #[serde(default)]
+    pub modules: u32,
+    /// Size of one stick when all modules match; otherwise None.
+    #[serde(default)]
+    pub module_size_bytes: Option<u64>,
+    /// e.g. DDR4, DDR5
+    #[serde(default)]
+    pub memory_type: String,
+    /// e.g. DIMM, SODIMM
+    #[serde(default)]
+    pub form_factor: String,
+    /// Configured clock when different from rated Speed.
+    #[serde(default)]
+    pub configured_speed_mhz: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,6 +286,16 @@ pub struct DiskInfo {
     pub model: String,
     pub capacity_bytes: u64,
     pub kind: DiskKind,
+    #[serde(default)]
+    pub interface_type: String,
+    #[serde(default)]
+    pub media_type: String,
+    #[serde(default)]
+    pub serial_number: String,
+    #[serde(default)]
+    pub partitions: Option<u32>,
+    #[serde(default)]
+    pub firmware_revision: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

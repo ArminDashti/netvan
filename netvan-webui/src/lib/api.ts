@@ -130,6 +130,11 @@ export interface MemoryInfo {
   model: string;
   size_bytes: number;
   speed_mhz: number | null;
+  modules?: number;
+  module_size_bytes?: number | null;
+  memory_type?: string;
+  form_factor?: string;
+  configured_speed_mhz?: number | null;
 }
 
 export interface DiskInfo {
@@ -137,6 +142,11 @@ export interface DiskInfo {
   model: string;
   capacity_bytes: number;
   kind: DiskKind;
+  interface_type?: string;
+  media_type?: string;
+  serial_number?: string;
+  partitions?: number | null;
+  firmware_revision?: string;
 }
 
 export interface GpuInfo {

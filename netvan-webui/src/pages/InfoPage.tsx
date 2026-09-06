@@ -37,6 +37,11 @@ function SpecRow({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function orDash(value: string | null | undefined): string {
+  const v = value?.trim();
+  return v ? v : "—";
+}
+
 function HwCard({
   title,
   brand,
@@ -52,10 +57,10 @@ function HwCard({
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
-        <HwVendorLogo vendor={vendor} className="h-10 w-14 object-contain" />
+        <HwVendorLogo vendor={vendor} className="h-10 w-14 shrink-0 object-contain" />
         <div className="min-w-0">
           <CardTitle className="text-base">{title}</CardTitle>
-          <p className="truncate text-sm text-[var(--color-muted-foreground)]">
+          <p className="whitespace-normal break-words text-sm text-[var(--color-muted-foreground)]">
             {brandModel(brand, model)}
           </p>
         </div>
@@ -78,6 +83,13 @@ function DiskCards({ disks, kind, title }: { disks: DiskInfo[]; kind: "ssd" | "h
           model={d.model}
         >
           <SpecRow label="Capacity">{formatBytes(d.capacity_bytes)}</SpecRow>
+          <SpecRow label="Interface">{orDash(d.interface_type)}</SpecRow>
+          <SpecRow label="Media">{orDash(d.media_type)}</SpecRow>
+          <SpecRow label="Partitions">
+            {d.partitions != null ? String(d.partitions) : "—"}
+          </SpecRow>
+          <SpecRow label="Firmware">{orDash(d.firmware_revision)}</SpecRow>
+          <SpecRow label="Serial">{orDash(d.serial_number)}</SpecRow>
         </HwCard>
       ))}
     </>
@@ -179,7 +191,7 @@ export function InfoPage() {
         <p className="text-sm text-red-400">{error}</p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr]">
         <HwCard
           title="CPU"
           brand={cpu?.brand ?? ""}
@@ -199,8 +211,17 @@ export function InfoPage() {
           brand={mem?.brand ?? ""}
           model={mem?.model ?? ""}
         >
-          <SpecRow label="Size">{mem ? formatBytes(mem.size_bytes) : "—"}</SpecRow>
-          <SpecRow label="Speed">{formatMhz(mem?.speed_mhz)}</SpecRow>
+          <SpecRow label="Total size">{mem ? formatBytes(mem.size_bytes) : "—"}</SpecRow>
+          <SpecRow label="Modules">
+            {mem?.modules != null && mem.modules > 0 ? String(mem.modules) : "—"}
+          </SpecRow>
+          <SpecRow label="Per module">
+            {mem?.module_size_bytes != null ? formatBytes(mem.module_size_bytes) : "—"}
+          </SpecRow>
+          <SpecRow label="Type">{orDash(mem?.memory_type)}</SpecRow>
+          <SpecRow label="Form factor">{orDash(mem?.form_factor)}</SpecRow>
+          <SpecRow label="Rated speed">{formatMhz(mem?.speed_mhz)}</SpecRow>
+          <SpecRow label="Configured speed">{formatMhz(mem?.configured_speed_mhz)}</SpecRow>
         </HwCard>
 
         {inv && <DiskCards disks={inv.disks} kind="ssd" title="SSD" />}

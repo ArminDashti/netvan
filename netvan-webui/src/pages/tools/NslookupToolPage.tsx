@@ -28,7 +28,7 @@ function classifyRecord(value: string): string {
 }
 
 export function NslookupToolPage() {
-  const [query, setQuery] = useState("example.com");
+  const [query, setQuery] = useState("google.com");
   const [rows, setRows] = useState<RecordRow[]>([]);
   const [raw, setRaw] = useState("");
   const [showRaw, setShowRaw] = useState(false);

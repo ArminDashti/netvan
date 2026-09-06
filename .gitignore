@@ -1,5 +1,8 @@
-﻿*.exe
+*.exe
 *.EXE
 
 # auto-managed: files > 5MB
 netvan-api/target/
+
+# auto-managed large files (>5MB)
+release/
