@@ -1,19 +1,17 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Remove the Netvan local Windows service and drop this stack's data/DB.
+  Remove the Netvan local Windows service; keep ProgramData / SQLite.
 
 .DESCRIPTION
   Stops/uninstalls the single WinSW service Netvan (and legacy netvan-api /
-  netvan-webui), clears install markers, removes winsw.exe, and deletes
-  %ProgramData%\Netvan\NetvanApi for this stack only.
+  netvan-webui), clears install markers, removes winsw/Netvan wrappers. Does
+  NOT delete %ProgramData%\Netvan\NetvanApi.
 #>
 param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path,
   [string]$StackName = 'netvan',
-  [string]$ServiceName = 'Netvan',
-  [int]$ApiPort = 8000,
-  [int]$WebUiPort = 8001
+  [string]$ServiceName = 'Netvan'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,11 +19,13 @@ $ErrorActionPreference = 'Stop'
 $DeployDir = $PSScriptRoot
 $StatePath = Join-Path $DeployDir 'state.json'
 $XmlPath = Join-Path $DeployDir 'Netvan.xml'
-$LegacyXmlPath = Join-Path $DeployDir 'netvan-api.xml'
-$WinswPath = Join-Path $DeployDir 'winsw.exe'
+$WinswDownloadPath = Join-Path $DeployDir 'winsw.exe'
+$WinswPath = Join-Path $DeployDir "$ServiceName.exe"
 $ApiRoot = Join-Path $ProjectRoot 'netvan-api'
 $DataDir = Join-Path $env:ProgramData 'Netvan\NetvanApi'
 $LegacyServiceNames = @($ServiceName, 'netvan-api', 'netvan-webui')
+$ApiPort = 8000
+$WebUiPort = 8001
 
 function Test-IsElevated {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -38,13 +38,15 @@ function Read-State {
   return (Get-Content -Raw -LiteralPath $StatePath | ConvertFrom-Json)
 }
 
-function Invoke-WinswSafe([string]$Xml, [string[]]$WinArgs) {
-  if (-not (Test-Path -LiteralPath $WinswPath)) { return }
-  if (-not (Test-Path -LiteralPath $Xml)) { return }
+function Invoke-WinswSafe([string]$Exe, [string[]]$WinArgs) {
+  if (-not $Exe -or -not (Test-Path -LiteralPath $Exe)) { return }
+  $base = [IO.Path]::GetFileNameWithoutExtension($Exe)
+  $cfg = Join-Path (Split-Path -Parent $Exe) "$base.xml"
+  if (-not (Test-Path -LiteralPath $cfg)) { return }
   try {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    & $WinswPath @WinArgs $Xml 2>&1 | Out-Null
+    & $Exe @WinArgs 2>&1 | Out-Null
   } catch {
   } finally {
     $ErrorActionPreference = $prev
@@ -64,19 +66,20 @@ if ($st -and $st.data_dir) {
   $DataDir = [string]$st.data_dir
 }
 
-Write-Host "==> removing stack $StackName (service $ServiceName)"
+Write-Host "==> removing stack $StackName (service $ServiceName); keeping data"
 
-Invoke-WinswSafe -Xml $XmlPath -WinArgs @('stop')
-Invoke-WinswSafe -Xml $XmlPath -WinArgs @('uninstall')
-Invoke-WinswSafe -Xml $LegacyXmlPath -WinArgs @('stop')
-Invoke-WinswSafe -Xml $LegacyXmlPath -WinArgs @('uninstall')
+Invoke-WinswSafe -Exe $WinswPath -WinArgs @('stop')
+Invoke-WinswSafe -Exe $WinswPath -WinArgs @('uninstall')
 
 foreach ($extra in @(
-    (Join-Path $env:ProgramFiles 'Netvan\netvan-api.xml'),
-    (Join-Path $env:ProgramFiles 'Netvan\netvan-webui.xml')
+    (Join-Path $DeployDir 'winsw.exe'),
+    (Join-Path $DeployDir 'netvan-api.exe'),
+    (Join-Path $env:ProgramFiles 'Netvan\netvan-api.exe'),
+    (Join-Path $env:ProgramFiles 'Netvan\netvan-webui.exe'),
+    (Join-Path $env:ProgramFiles 'Netvan\Netvan.exe')
   )) {
-  Invoke-WinswSafe -Xml $extra -WinArgs @('stop')
-  Invoke-WinswSafe -Xml $extra -WinArgs @('uninstall')
+  Invoke-WinswSafe -Exe $extra -WinArgs @('stop')
+  Invoke-WinswSafe -Exe $extra -WinArgs @('uninstall')
 }
 
 $nativeCandidates = @(
@@ -109,17 +112,20 @@ foreach ($name in $LegacyServiceNames) {
 }
 
 foreach ($port in @($ApiPort, $WebUiPort)) {
-  Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-    ForEach-Object {
-      Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
-    }
+  try {
+    Import-Module NetTCPIP -ErrorAction SilentlyContinue | Out-Null
+    Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+      ForEach-Object {
+        Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+      }
+  } catch {
+  }
 }
 
 if (Test-Path -LiteralPath $DataDir) {
-  Write-Host "==> removing data dir $DataDir"
-  Remove-Item -LiteralPath $DataDir -Recurse -Force
+  Write-Host "==> keeping data dir $DataDir"
 } else {
-  Write-Host "==> data dir already absent: $DataDir"
+  Write-Host "==> data dir absent (nothing to keep): $DataDir"
 }
 
 @{
@@ -132,11 +138,23 @@ if (Test-Path -LiteralPath $DataDir) {
   data_dir     = $DataDir
   mode         = 'removed'
   updated_at   = (Get-Date).ToString('s')
+  notes        = 'Service removed; ProgramData / SQLite kept. install.ps1 regenerates helpers + WinSW.'
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 
-if (Test-Path -LiteralPath $WinswPath) {
-  Write-Host '==> removing winsw.exe'
-  Remove-Item -LiteralPath $WinswPath -Force -ErrorAction SilentlyContinue
+foreach ($bin in @($WinswPath, $WinswDownloadPath)) {
+  if (Test-Path -LiteralPath $bin) {
+    Write-Host "==> removing $([IO.Path]::GetFileName($bin))"
+    Remove-Item -LiteralPath $bin -Force -ErrorAction SilentlyContinue
+  }
 }
 
-Write-Host "Done: service '$ServiceName' (and legacy split services) removed; stack data dropped."
+foreach ($gen in @($XmlPath, (Join-Path $DeployDir 'Start-Netvan.ps1'), (Join-Path $DeployDir 'Serve-WebUi.ps1'), (Join-Path $DeployDir 'netvan-api.xml'))) {
+  if (Test-Path -LiteralPath $gen) {
+    Write-Host "==> removing generated $([IO.Path]::GetFileName($gen))"
+    Remove-Item -LiteralPath $gen -Force -ErrorAction SilentlyContinue
+  }
+}
+
+Write-Host "Done: service '$ServiceName' (and legacy split services) removed; data kept at $DataDir"
+# Native sc.exe/winsw may leave a non-zero LASTEXITCODE (e.g. 1060 = service gone).
+$global:LASTEXITCODE = 0

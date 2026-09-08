@@ -6,3 +6,5 @@ netvan-api/target/
 
 # auto-managed large files (>5MB)
 release/
+
+# AUTO-LARGE-FILES (>5MB) — managed by commit-push-to-github

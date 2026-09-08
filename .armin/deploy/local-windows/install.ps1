@@ -4,25 +4,28 @@
   Install or update Netvan as one local Windows service (WinSW): API + WebUI.
 
 .DESCRIPTION
-  Fresh install: assign/reuse ports, ensure data dir, build API + WebUI, ensure
-  WinSW, write service XML, install and start a single service named Netvan.
+  Fresh install: assign ports (random safe API + WebUI=API+1, or "port set N"),
+  ensure data dir, build API + WebUI, generate Start-Netvan.ps1 / Serve-WebUi.ps1 /
+  Netvan.xml, install and start a single service named Netvan.
 
-  Already installed (Get-Service Netvan / legacy names, WinSW status, or
-  state.json installed=true): UPDATE path — stop service, rebuild, rewrite XML,
-  reinstall+start. Keeps %ProgramData%\Netvan\NetvanApi (SQLite) and reuses
-  ports from state.json. Never drops the database on install or update.
+  Already installed: UPDATE path — fully remove prior app/service wrappers, rebuild,
+  rewrite helpers/XML, install+start. Keeps %ProgramData%\Netvan\NetvanApi (SQLite).
+  Reuses ports from state.json unless "port set N" overrides. Never drops the database.
 
-  Migrates away from split services netvan-api / netvan-webui when present.
+.EXAMPLE
+  .\install.ps1
+  .\install.ps1 port set 18000
 
 .NOTES
-  Requires Administrator. This script does not run itself; invoke manually.
+  Requires Administrator. Invoke manually.
 #>
+[CmdletBinding(PositionalBinding = $false)]
 param(
   [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path,
   [string]$StackName = 'netvan',
   [string]$ServiceName = 'Netvan',
-  [int]$ApiPort = 8000,
-  [int]$WebUiPort = 8001
+  [Parameter(ValueFromRemainingArguments = $true)]
+  [string[]]$CliArgs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,15 +34,17 @@ $DeployDir = $PSScriptRoot
 $StatePath = Join-Path $DeployDir 'state.json'
 $XmlPath = Join-Path $DeployDir 'Netvan.xml'
 $LegacyXmlPath = Join-Path $DeployDir 'netvan-api.xml'
-$WinswPath = Join-Path $DeployDir 'winsw.exe'
+$WinswDownloadPath = Join-Path $DeployDir 'winsw.exe'
+$WinswPath = Join-Path $DeployDir "$ServiceName.exe"
 $StartScript = Join-Path $DeployDir 'Start-Netvan.ps1'
 $ServeScript = Join-Path $DeployDir 'Serve-WebUi.ps1'
 $ApiRoot = Join-Path $ProjectRoot 'netvan-api'
 $WebUiRoot = Join-Path $ProjectRoot 'netvan-webui'
 $WebUiDist = Join-Path $WebUiRoot 'dist'
 $DataDir = Join-Path $env:ProgramData 'Netvan\NetvanApi'
-$Bind = "127.0.0.1:$ApiPort"
 $LegacyServiceNames = @('netvan-api', 'netvan-webui', 'Netvan')
+$PortMin = 20000
+$PortMax = 49000
 
 function Test-IsElevated {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -66,11 +71,76 @@ function Test-AlreadyInstalled {
   if ($st -and $st.installed -eq $true) { return $true }
 
   if ((Test-Path -LiteralPath $WinswPath) -and (Test-Path -LiteralPath $XmlPath)) {
-    $out = & $WinswPath status $XmlPath 2>&1 | Out-String
-    if ($out -match 'Installed|Running|Stopped') { return $true }
+    try {
+      $prev = $ErrorActionPreference
+      $ErrorActionPreference = 'Continue'
+      $out = & $WinswPath status 2>&1 | Out-String
+      if ($out -match 'Installed|Running|Stopped') { return $true }
+    } catch {
+      # Corrupt/truncated WinSW must not block install; Ensure-Winsw redownloads.
+    } finally {
+      $ErrorActionPreference = $prev
+    }
   }
 
   return $false
+}
+
+function Test-PortFree([int]$Port) {
+  if ($Port -lt 1 -or $Port -gt 65535) { return $false }
+  try {
+    Import-Module NetTCPIP -ErrorAction SilentlyContinue | Out-Null
+    $inUse = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($inUse) { return $false }
+  } catch {
+    # Fall through to TcpListener probe if NetTCPIP is unavailable
+  }
+  try {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+    $listener.Start()
+    $listener.Stop()
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Test-PortPairFree([int]$ApiPort) {
+  $web = $ApiPort + 1
+  if ($web -gt 65535) { return $false }
+  return (Test-PortFree $ApiPort) -and (Test-PortFree $web)
+}
+
+function Get-PortSetFromArgs([string[]]$ArgsList) {
+  if (-not $ArgsList -or $ArgsList.Count -eq 0) { return $null }
+  if ($ArgsList.Count -lt 3) {
+    throw 'Usage: .\install.ps1 [port set <NUMBER>]'
+  }
+  if ($ArgsList[0] -ne 'port' -or $ArgsList[1] -ne 'set') {
+    throw "Unknown arguments: $($ArgsList -join ' '). Usage: .\install.ps1 [port set <NUMBER>]"
+  }
+  $raw = $ArgsList[2]
+  $n = 0
+  if (-not [int]::TryParse($raw, [ref]$n)) {
+    throw "port set requires an integer; got '$raw'"
+  }
+  if ($n -lt 1 -or $n -gt 65534) {
+    throw "API port must be 1..65534 (WebUI uses port+1); got $n"
+  }
+  if ($ArgsList.Count -gt 3) {
+    throw "Unexpected extra arguments after port set: $($ArgsList[3..($ArgsList.Count-1)] -join ' ')"
+  }
+  return $n
+}
+
+function Get-RandomFreeApiPort {
+  $rng = [System.Random]::new()
+  for ($i = 0; $i -lt 200; $i++) {
+    $candidate = $rng.Next($PortMin, $PortMax + 1)
+    if (($candidate + 1) -gt 65535) { continue }
+    if (Test-PortPairFree $candidate) { return $candidate }
+  }
+  throw "Could not find a free API/WebUI port pair in $PortMin-$PortMax"
 }
 
 function Get-NativeApiExe {
@@ -85,15 +155,16 @@ function Get-NativeApiExe {
   return $null
 }
 
-function Invoke-WinswSafe([string]$Xml, [string[]]$WinArgs) {
-  if (-not (Test-Path -LiteralPath $WinswPath)) { return }
-  if (-not (Test-Path -LiteralPath $Xml)) { return }
+function Invoke-WinswSafe([string]$Exe, [string[]]$WinArgs) {
+  if (-not $Exe -or -not (Test-Path -LiteralPath $Exe)) { return }
+  $base = [IO.Path]::GetFileNameWithoutExtension($Exe)
+  $cfg = Join-Path (Split-Path -Parent $Exe) "$base.xml"
+  if (-not (Test-Path -LiteralPath $cfg)) { return }
   try {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    & $WinswPath @WinArgs $Xml 2>&1 | Out-Null
+    & $Exe @WinArgs 2>&1 | Out-Null
   } catch {
-    # best-effort cleanup / stop
   } finally {
     $ErrorActionPreference = $prev
   }
@@ -122,20 +193,28 @@ function Remove-ScService([string]$Name) {
   sc.exe delete $Name 2>$null | Out-Null
 }
 
-function Clear-PriorServices {
-  # Stop WinSW registrations (current + legacy XML)
-  Invoke-WinswSafe -Xml $XmlPath -WinArgs @('stop')
-  Invoke-WinswSafe -Xml $XmlPath -WinArgs @('uninstall')
-  Invoke-WinswSafe -Xml $LegacyXmlPath -WinArgs @('stop')
-  Invoke-WinswSafe -Xml $LegacyXmlPath -WinArgs @('uninstall')
+function Clear-PriorServices([int]$ApiPort, [int]$WebUiPort) {
+  Write-Host '==> removing prior app/service (keeping ProgramData / SQLite)'
+  Invoke-WinswSafe -Exe $WinswPath -WinArgs @('stop')
+  Invoke-WinswSafe -Exe $WinswPath -WinArgs @('uninstall')
+  $legacyExe = Join-Path $DeployDir 'winsw.exe'
+  if (Test-Path -LiteralPath $legacyExe) {
+    Invoke-WinswSafe -Exe $legacyExe -WinArgs @('stop')
+    Invoke-WinswSafe -Exe $legacyExe -WinArgs @('uninstall')
+  }
+  $legacyApiExe = Join-Path $DeployDir 'netvan-api.exe'
+  if (Test-Path -LiteralPath $legacyApiExe) {
+    Invoke-WinswSafe -Exe $legacyApiExe -WinArgs @('stop')
+    Invoke-WinswSafe -Exe $legacyApiExe -WinArgs @('uninstall')
+  }
 
-  # Packaged dual-service XMLs (if present under Program Files / prior installs)
   foreach ($extra in @(
-      (Join-Path $env:ProgramFiles 'Netvan\netvan-api.xml'),
-      (Join-Path $env:ProgramFiles 'Netvan\netvan-webui.xml')
+      (Join-Path $env:ProgramFiles 'Netvan\netvan-api.exe'),
+      (Join-Path $env:ProgramFiles 'Netvan\netvan-webui.exe'),
+      (Join-Path $env:ProgramFiles 'Netvan\Netvan.exe')
     )) {
-    Invoke-WinswSafe -Xml $extra -WinArgs @('stop')
-    Invoke-WinswSafe -Xml $extra -WinArgs @('uninstall')
+    Invoke-WinswSafe -Exe $extra -WinArgs @('stop')
+    Invoke-WinswSafe -Exe $extra -WinArgs @('uninstall')
   }
 
   Stop-NativeApiService
@@ -144,12 +223,31 @@ function Clear-PriorServices {
     Remove-ScService $name
   }
 
-  # Free listen ports from any leftover preview / static hosts
   foreach ($port in @($ApiPort, $WebUiPort)) {
-    Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-      ForEach-Object {
-        Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
-      }
+    try {
+      Import-Module NetTCPIP -ErrorAction SilentlyContinue | Out-Null
+      Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+        ForEach-Object {
+          Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+      # Best-effort; TcpListener checks still gate installs
+    }
+  }
+
+  # Strip prior generated app artifacts; never touch $DataDir.
+  foreach ($gen in @(
+      $WinswPath,
+      $XmlPath,
+      $LegacyXmlPath,
+      $StartScript,
+      $ServeScript,
+      (Join-Path $DeployDir 'netvan-api.exe')
+    )) {
+    if (Test-Path -LiteralPath $gen) {
+      Write-Host "==> removing prior app file $([IO.Path]::GetFileName($gen))"
+      Remove-Item -LiteralPath $gen -Force -ErrorAction SilentlyContinue
+    }
   }
 }
 
@@ -170,6 +268,14 @@ function Resolve-ApiCargoTarget {
 
 function Build-Api {
   if (-not (Test-Path -LiteralPath $ApiRoot)) { throw "Missing API root: $ApiRoot" }
+  if ($env:NETVAN_INSTALL_SKIP_API_BUILD -eq '1') {
+    $existing = Get-NativeApiExe
+    if (-not $existing) {
+      throw 'NETVAN_INSTALL_SKIP_API_BUILD=1 but netvan-api.exe not found under target/*/release'
+    }
+    Write-Host "==> skipping cargo build (NETVAN_INSTALL_SKIP_API_BUILD=1); using $existing"
+    return $existing
+  }
   $target = Resolve-ApiCargoTarget
   Push-Location $ApiRoot
   try {
@@ -188,6 +294,13 @@ function Build-WebUi {
   if (-not (Test-Path -LiteralPath $WebUiRoot)) {
     throw "Missing WebUI root: $WebUiRoot"
   }
+  if ($env:NETVAN_INSTALL_SKIP_WEBUI_BUILD -eq '1') {
+    if (-not (Test-Path -LiteralPath $WebUiDist)) {
+      throw "NETVAN_INSTALL_SKIP_WEBUI_BUILD=1 but dist missing: $WebUiDist"
+    }
+    Write-Host "==> skipping npm run build (NETVAN_INSTALL_SKIP_WEBUI_BUILD=1); using $WebUiDist"
+    return (Resolve-Path -LiteralPath $WebUiDist).Path
+  }
   Push-Location $WebUiRoot
   try {
     Write-Host '==> npm run build (webui)'
@@ -202,31 +315,244 @@ function Build-WebUi {
   return (Resolve-Path -LiteralPath $WebUiDist).Path
 }
 
+function Test-WinswBinary([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) { return $false }
+  $item = Get-Item -LiteralPath $Path
+  # WinSW v2.12.0 WinSW.NET461.exe official asset size (truncated downloads break install).
+  $expectedSize = 655872L
+  if ($item.Length -ne $expectedSize) { return $false }
+  try {
+    $fs = [IO.File]::OpenRead($Path)
+    try {
+      $hdr = New-Object byte[] 2
+      if ($fs.Read($hdr, 0, 2) -ne 2) { return $false }
+      if ($hdr[0] -ne 0x4D -or $hdr[1] -ne 0x5A) { return $false }
+    } finally { $fs.Close() }
+  } catch { return $false }
+  return $true
+}
+
 function Ensure-Winsw {
-  if (Test-Path -LiteralPath $WinswPath) {
-    $existing = Get-Item -LiteralPath $WinswPath
-    if ($existing.Length -gt 1MB) { return }
-    Remove-Item -LiteralPath $WinswPath -Force
+  # Prefer framework-dependent build: ~640KB vs ~17MB self-contained WinSW-x64.exe.
+  $url = 'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET461.exe'
+  $expectedSize = 655872L
+  $needDownload = -not (Test-WinswBinary $WinswDownloadPath)
+  if ($needDownload -and (Test-Path -LiteralPath $WinswDownloadPath)) {
+    Write-Host "==> removing invalid/truncated WinSW ($((Get-Item -LiteralPath $WinswDownloadPath).Length) bytes; need $expectedSize)"
+    Remove-Item -LiteralPath $WinswDownloadPath -Force
   }
-  # Latest stable release (v3.0.0 does not exist on GitHub; 404 returns HTML).
-  $url = 'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe'
-  Write-Host "==> downloading WinSW to $WinswPath"
-  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  Invoke-WebRequest -Uri $url -OutFile $WinswPath -UseBasicParsing
-  if (-not (Test-Path -LiteralPath $WinswPath)) { throw 'WinSW download failed' }
-  $bytes = [System.IO.File]::ReadAllBytes($WinswPath)
-  if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
-    Remove-Item -LiteralPath $WinswPath -Force -ErrorAction SilentlyContinue
-    throw "WinSW download is not a Windows PE binary (bad URL or HTML 404). Tried: $url"
+  if ($needDownload) {
+    Write-Host "==> downloading WinSW to $WinswDownloadPath"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri $url -OutFile $WinswDownloadPath -UseBasicParsing
+    if (-not (Test-WinswBinary $WinswDownloadPath)) {
+      $got = if (Test-Path -LiteralPath $WinswDownloadPath) { (Get-Item -LiteralPath $WinswDownloadPath).Length } else { 0 }
+      Remove-Item -LiteralPath $WinswDownloadPath -Force -ErrorAction SilentlyContinue
+      throw "WinSW download invalid (got $got bytes, need $expectedSize MZ PE). Tried: $url"
+    }
+  }
+  # WinSW v2 resolves config as <exe-basename>.xml next to the executable.
+  Copy-Item -LiteralPath $WinswDownloadPath -Destination $WinswPath -Force
+  Unblock-File -LiteralPath $WinswPath -ErrorAction SilentlyContinue
+  Write-Host "==> WinSW service wrapper ready: $WinswPath"
+}
+
+function Write-GeneratedHelpers {
+  $serveBody = @'
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+  Serve a static WebUI folder over HTTP (no Node required at runtime).
+  Generated by install.ps1 — do not edit as source of truth.
+#>
+param(
+  [Parameter(Mandatory = $true)]
+  [string]$Root,
+
+  [int]$Port = 8001,
+
+  [string]$HostAddress = '127.0.0.1'
+)
+
+$ErrorActionPreference = 'Stop'
+
+if (-not (Test-Path -LiteralPath $Root)) {
+  throw "WebUI root not found: $Root"
+}
+
+$Root = (Resolve-Path -LiteralPath $Root).Path
+$prefix = "http://${HostAddress}:$Port/"
+
+$mime = @{
+  '.html' = 'text/html; charset=utf-8'
+  '.htm'  = 'text/html; charset=utf-8'
+  '.js'   = 'application/javascript; charset=utf-8'
+  '.mjs'  = 'application/javascript; charset=utf-8'
+  '.css'  = 'text/css; charset=utf-8'
+  '.json' = 'application/json; charset=utf-8'
+  '.svg'  = 'image/svg+xml'
+  '.png'  = 'image/png'
+  '.jpg'  = 'image/jpeg'
+  '.jpeg' = 'image/jpeg'
+  '.webp' = 'image/webp'
+  '.ico'  = 'image/x-icon'
+  '.woff' = 'font/woff'
+  '.woff2'= 'font/woff2'
+  '.map'  = 'application/json'
+  '.webmanifest' = 'application/manifest+json'
+  '.txt'  = 'text/plain; charset=utf-8'
+}
+
+$listener = [System.Net.HttpListener]::new()
+$listener.Prefixes.Add($prefix)
+$listener.Start()
+Write-Host "Serving $Root at $prefix"
+
+try {
+  while ($listener.IsListening) {
+    $ctx = $listener.GetContext()
+    $req = $ctx.Request
+    $res = $ctx.Response
+    try {
+      $rel = [Uri]::UnescapeDataString($req.Url.AbsolutePath.TrimStart('/'))
+      if ([string]::IsNullOrWhiteSpace($rel)) { $rel = 'index.html' }
+      $rel = $rel -replace '/', [IO.Path]::DirectorySeparatorChar
+      $candidate = [IO.Path]::GetFullPath((Join-Path $Root $rel))
+      if (-not $candidate.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase)) {
+        $res.StatusCode = 403
+        $res.Close()
+        continue
+      }
+      if ((Test-Path -LiteralPath $candidate -PathType Container)) {
+        $candidate = Join-Path $candidate 'index.html'
+      }
+      if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        $candidate = Join-Path $Root 'index.html'
+      }
+      if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        $res.StatusCode = 404
+        $res.Close()
+        continue
+      }
+      $ext = [IO.Path]::GetExtension($candidate).ToLowerInvariant()
+      $res.ContentType = if ($mime.ContainsKey($ext)) { $mime[$ext] } else { 'application/octet-stream' }
+      $bytes = [IO.File]::ReadAllBytes($candidate)
+      $res.ContentLength64 = $bytes.LongLength
+      $res.OutputStream.Write($bytes, 0, $bytes.Length)
+      $res.StatusCode = 200
+    } catch {
+      $res.StatusCode = 500
+    } finally {
+      $res.Close()
+    }
+  }
+} finally {
+  if ($listener.IsListening) { $listener.Stop() }
+  $listener.Close()
+}
+'@
+
+  $startBody = @'
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+  WinSW entrypoint: run API + WebUI under one process tree (service Netvan).
+  Generated by install.ps1 — do not edit as source of truth.
+#>
+param(
+  [Parameter(Mandatory = $true)]
+  [string]$ApiExe,
+
+  [Parameter(Mandatory = $true)]
+  [string]$ApiWorkingDir,
+
+  [Parameter(Mandatory = $true)]
+  [string]$WebUiRoot,
+
+  [Parameter(Mandatory = $true)]
+  [string]$ServeScript,
+
+  [string]$DataDir = (Join-Path $env:ProgramData 'Netvan\NetvanApi'),
+
+  [int]$ApiPort = 8000,
+
+  [int]$WebUiPort = 8001,
+
+  [string]$BindHost = '127.0.0.1'
+)
+
+$ErrorActionPreference = 'Stop'
+
+foreach ($need in @($ApiExe, $ApiWorkingDir, $WebUiRoot, $ServeScript)) {
+  if (-not (Test-Path -LiteralPath $need)) {
+    throw "Missing path required by Start-Netvan: $need"
   }
 }
 
-function Write-ServiceXml([string]$BinaryPath, [string]$DistPath) {
+$env:NETVAN_API_BIND = "${BindHost}:$ApiPort"
+$env:NETVAN_API_DATA_DIR = $DataDir
+
+$ps = (Get-Command powershell.exe).Source
+$webArgs = @(
+  '-NoProfile',
+  '-ExecutionPolicy', 'Bypass',
+  '-File', $ServeScript,
+  '-Root', $WebUiRoot,
+  '-Port', "$WebUiPort",
+  '-HostAddress', $BindHost
+)
+
+Write-Host "==> starting API $ApiExe run (bind $($env:NETVAN_API_BIND))"
+$api = Start-Process -FilePath $ApiExe -ArgumentList @('run') `
+  -WorkingDirectory $ApiWorkingDir -PassThru -WindowStyle Hidden
+
+Write-Host "==> starting WebUI static server on ${BindHost}:$WebUiPort"
+$web = Start-Process -FilePath $ps -ArgumentList $webArgs `
+  -WorkingDirectory (Split-Path -Parent $ServeScript) -PassThru -WindowStyle Hidden
+
+function Stop-Child([System.Diagnostics.Process]$Proc) {
+  if (-not $Proc) { return }
+  if ($Proc.HasExited) { return }
+  try {
+    Stop-Process -Id $Proc.Id -Force -ErrorAction SilentlyContinue
+  } catch {}
+  try {
+    & taskkill.exe /F /T /PID $Proc.Id 2>$null | Out-Null
+  } catch {}
+}
+
+try {
+  while ($true) {
+    Start-Sleep -Seconds 2
+    if ($api.HasExited) {
+      Write-Host "==> API exited with code $($api.ExitCode)"
+      break
+    }
+    if ($web.HasExited) {
+      Write-Host "==> WebUI exited with code $($web.ExitCode)"
+      break
+    }
+  }
+} finally {
+  Write-Host '==> stopping API + WebUI children'
+  Stop-Child $web
+  Stop-Child $api
+}
+'@
+
+  Set-Content -LiteralPath $ServeScript -Value $serveBody -Encoding UTF8
+  Set-Content -LiteralPath $StartScript -Value $startBody -Encoding UTF8
+  Write-Host "==> wrote generated helpers: $StartScript , $ServeScript"
+}
+
+function Write-ServiceXml([string]$BinaryPath, [string]$DistPath, [int]$ApiPort, [int]$WebUiPort) {
   $psEsc = [System.Security.SecurityElement]::Escape((Get-Command powershell.exe).Source)
   $dataEsc = [System.Security.SecurityElement]::Escape($DataDir)
   $wdEsc = [System.Security.SecurityElement]::Escape($DeployDir)
+  $bind = "127.0.0.1:$ApiPort"
   $args = "-NoProfile -ExecutionPolicy Bypass -File `"$StartScript`" -ApiExe `"$BinaryPath`" -ApiWorkingDir `"$ApiRoot`" -WebUiRoot `"$DistPath`" -ServeScript `"$ServeScript`" -DataDir `"$DataDir`" -ApiPort $ApiPort -WebUiPort $WebUiPort -BindHost 127.0.0.1"
   $argsEsc = [System.Security.SecurityElement]::Escape($args)
+  $bindEsc = [System.Security.SecurityElement]::Escape($bind)
 
   $xml = @"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -237,7 +563,7 @@ function Write-ServiceXml([string]$BinaryPath, [string]$DistPath) {
   <executable>$psEsc</executable>
   <arguments>$argsEsc</arguments>
   <workingdirectory>$wdEsc</workingdirectory>
-  <env name="NETVAN_API_BIND" value="$Bind"/>
+  <env name="NETVAN_API_BIND" value="$bindEsc"/>
   <env name="NETVAN_API_DATA_DIR" value="$dataEsc"/>
   <logpath>$dataEsc</logpath>
   <log mode="roll-by-size">
@@ -248,10 +574,13 @@ function Write-ServiceXml([string]$BinaryPath, [string]$DistPath) {
   <stoptimeout>20 sec</stoptimeout>
 </service>
 "@
-  Set-Content -LiteralPath $XmlPath -Value $xml -Encoding UTF8
+  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($XmlPath, $xml, $utf8NoBom)
+  Write-Host "==> wrote $XmlPath"
 }
 
 function Invoke-Winsw([string[]]$WinArgs) {
+  # Config is Netvan.xml beside Netvan.exe (same basename) — do not pass XML path.
   & $WinswPath @WinArgs
   if ($LASTEXITCODE -ne 0) {
     throw "winsw $($WinArgs -join ' ') failed ($LASTEXITCODE)"
@@ -278,48 +607,67 @@ if (-not (Test-Path -LiteralPath $ApiRoot)) {
 if (-not (Test-Path -LiteralPath $WebUiRoot)) {
   throw "Expected WebUI at $WebUiRoot"
 }
-if (-not (Test-Path -LiteralPath $StartScript)) {
-  throw "Expected launcher at $StartScript"
-}
-if (-not (Test-Path -LiteralPath $ServeScript)) {
-  throw "Expected Serve-WebUi at $ServeScript"
-}
 
+$portOverride = Get-PortSetFromArgs $CliArgs
 $already = Test-AlreadyInstalled
 if ($already) {
-  Write-Host '==> UPDATE path (already installed); keeping DB/data and reusing ports'
+  Write-Host '==> UPDATE path (already installed); keeping DB/data'
 } else {
   Write-Host '==> FRESH install path'
 }
 
 $prior = Read-State
-if ($already -and $prior -and $prior.ports) {
-  if ($prior.ports.api) {
-    $ApiPort = [int]$prior.ports.api
-    $Bind = "127.0.0.1:$ApiPort"
-  }
-  if ($prior.ports.webui) {
-    $WebUiPort = [int]$prior.ports.webui
-  }
-}
 if ($already -and $prior -and $prior.data_dir) {
   $DataDir = [string]$prior.data_dir
 }
 
+$ApiPort = 0
+$WebUiPort = 0
+if ($null -ne $portOverride) {
+  $ApiPort = [int]$portOverride
+  $WebUiPort = $ApiPort + 1
+  Write-Host "==> port set: API=$ApiPort WebUI=$WebUiPort"
+} elseif ($already -and $prior -and $prior.ports -and $prior.ports.api) {
+  $ApiPort = [int]$prior.ports.api
+  if ($prior.ports.webui) {
+    $WebUiPort = [int]$prior.ports.webui
+  } else {
+    $WebUiPort = $ApiPort + 1
+  }
+  Write-Host "==> reusing ports from state: API=$ApiPort WebUI=$WebUiPort"
+} else {
+  $ApiPort = Get-RandomFreeApiPort
+  $WebUiPort = $ApiPort + 1
+  Write-Host "==> random safe ports: API=$ApiPort WebUI=$WebUiPort"
+}
+
 Ensure-DataDir
-Clear-PriorServices
+Clear-PriorServices -ApiPort $ApiPort -WebUiPort $WebUiPort
+
+# After clearing listeners, re-check override / random ports
+if ($null -ne $portOverride) {
+  if (-not (Test-PortPairFree $ApiPort)) {
+    throw "Ports $ApiPort / $WebUiPort are still in use after cleanup"
+  }
+} elseif (-not $already) {
+  if (-not (Test-PortPairFree $ApiPort)) {
+    $ApiPort = Get-RandomFreeApiPort
+    $WebUiPort = $ApiPort + 1
+    Write-Host "==> re-picked ports after cleanup: API=$ApiPort WebUI=$WebUiPort"
+  }
+}
 
 $binary = Build-Api
 $dist = Build-WebUi
 Ensure-Winsw
-Write-ServiceXml -BinaryPath $binary -DistPath $dist
+Write-GeneratedHelpers
+Write-ServiceXml -BinaryPath $binary -DistPath $dist -ApiPort $ApiPort -WebUiPort $WebUiPort
 
-# Always uninstall then install so an existing registration becomes an in-place update
-Invoke-WinswSafe -Xml $XmlPath -WinArgs @('stop')
-Invoke-WinswSafe -Xml $XmlPath -WinArgs @('uninstall')
+Invoke-WinswSafe -Exe $WinswPath -WinArgs @('stop')
+Invoke-WinswSafe -Exe $WinswPath -WinArgs @('uninstall')
 
-Invoke-Winsw @('install', $XmlPath)
-Invoke-Winsw @('start', $XmlPath)
+Invoke-Winsw @('install')
+Invoke-Winsw @('start')
 
 Write-State @{
   stack_name   = $StackName
@@ -334,6 +682,7 @@ Write-State @{
 }
 
 Write-Host "Done ($($(if ($already) { 'update' } else { 'fresh' }))): single service '$ServiceName'"
-Write-Host "  API   http://$Bind"
+Write-Host "  API   http://127.0.0.1:$ApiPort"
 Write-Host "  WebUI http://127.0.0.1:$WebUiPort"
 Write-Host "  data  $DataDir"
+$global:LASTEXITCODE = 0
