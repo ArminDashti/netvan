@@ -1,8 +1,15 @@
 ---
-description: After code edits, close/remove and refresh only the edited section; both API and WebUI must run (no hot reload)
+description: >-
+  After code edits, close/remove and refresh only the edited section; both API and WebUI must run (no hot reload)
 alwaysApply: true
+metadata:
+  version: 1.0.0
+  author: "Armin Dashti"
+  category: 
+  tags: []
+  last_updated: "2026-09-10 12:50:20"
+  uuid: a8270934-8d81-49fc-a7ce-27f27b1e97e5
 ---
-
 # Rebuild edited section only
 
 After any **code** edit, refresh the running stack on this machine — but **only** for the section(s) you changed. Close and remove the current version of that section first, then build and run a fresh one. Do **not** use Vite hot reload / HMR.
