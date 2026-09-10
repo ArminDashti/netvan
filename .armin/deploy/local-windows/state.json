@@ -1,14 +1,14 @@
-{
-  "stack_name": "netvan",
-  "service_name": "Netvan",
-  "installed": false,
-  "ports": {
-    "api": 8000,
-    "webui": 8001
-  },
-  "binary_path": "",
-  "webui_dist": "",
-  "data_dir": "C:\\ProgramData\\Netvan\\NetvanApi",
-  "mode": "template",
-  "notes": "install.ps1 registers one WinSW service named Netvan that runs API + WebUI; remove.ps1 uninstalls it and drops data."
+﻿{
+    "webui_dist":  "C:\\Users\\armin\\GitHub\\netvan\\netvan-webui\\dist",
+    "data_dir":  "C:\\ProgramData\\Netvan\\NetvanApi",
+    "binary_path":  "C:\\Users\\armin\\GitHub\\netvan\\netvan-api\\target\\x86_64-pc-windows-msvc\\release\\netvan-api.exe",
+    "stack_name":  "netvan",
+    "service_name":  "Netvan",
+    "ports":  {
+                  "webui":  28101,
+                  "api":  28100
+              },
+    "mode":  "fresh",
+    "updated_at":  "2026-09-08T23:27:49",
+    "installed":  true
 }
