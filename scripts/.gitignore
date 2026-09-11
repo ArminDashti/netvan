@@ -5,3 +5,4 @@ Netvan.xml
 Start-Netvan.ps1
 Serve-WebUi.ps1
 netvan-api.xml
+state.json

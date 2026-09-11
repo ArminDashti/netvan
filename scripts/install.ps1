@@ -21,7 +21,7 @@
 #>
 [CmdletBinding(PositionalBinding = $false)]
 param(
-  [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path,
+  [string]$ProjectRoot,
   [string]$StackName = 'netvan',
   [string]$ServiceName = 'Netvan',
   [Parameter(ValueFromRemainingArguments = $true)]
@@ -29,6 +29,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+  $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+}
 
 $DeployDir = $PSScriptRoot
 $StatePath = Join-Path $DeployDir 'state.json'
