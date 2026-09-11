@@ -7,3 +7,43 @@ netvan-api/target/
 # auto-managed large files (>5MB)
 release/
 # === auto: large files (>5MB) ===
+
+# Auto-managed: files larger than 5 MB
+netvan-api/target/release/deps/libsyn-a1e10970f940830a.rlib
+netvan-api/target/release/deps/libsyn-ab1e2ad192788703.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/netvan-api.exe
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libaxum-9516b4768dea1593.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libaxum-9516b4768dea1593.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libfutures_util-be61e579dcac97b9.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libfutures_util-be61e579dcac97b9.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/liblibsqlite3_sys-a1d6d11b7f3d345c.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libreqwest-51788425e8a3c0a1.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/librustls-4c4b9cc2475d252a.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libserde_core-d796f353f7a71f3c.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libserde_core-d796f353f7a71f3c.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libtokio-e40023cef58a0172.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libtokio-e40023cef58a0172.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwinapi-43c88d2a35674fbf.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwinapi-43c88d2a35674fbf.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows_sys-a0332b9c62151b8d.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows_sys-a0332b9c62151b8d.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows_sys-bcf49fab42737f4b.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows_sys-bcf49fab42737f4b.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows_sys-f05e57e62f97da5c.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows_sys-f05e57e62f97da5c.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows-8dc3d7d08a93107e.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows-8dc3d7d08a93107e.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows-95b25c6979cef866.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows-95b25c6979cef866.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows-d58498e8035afc8b.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libwindows-d58498e8035afc8b.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libzerocopy-d7ca0492f077445a.rlib
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/libzerocopy-d7ca0492f077445a.rmeta
+netvan-api/target/x86_64-pc-windows-msvc/release/deps/netvan_api.exe
+netvan-webui/node_modules/@esbuild/win32-x64/esbuild.exe
+netvan-webui/node_modules/echarts/dist/echarts.esm.js.map
+netvan-webui/node_modules/echarts/dist/echarts.esm.mjs.map
+netvan-webui/node_modules/echarts/dist/echarts.js.map
+netvan-webui/node_modules/lightningcss-win32-x64-msvc/lightningcss.win32-x64-msvc.node
+netvan-webui/node_modules/typescript/lib/_tsc.js
+netvan-webui/node_modules/typescript/lib/typescript.js
