@@ -21,8 +21,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 axum = { version = "0.8", features = ["ws"] }
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
 futures-util = "0.3"
+tower = "0.5"
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.7"

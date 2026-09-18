@@ -34,4 +34,36 @@ pub fn ensure_data_dir() -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
-pub const DEFAULT_BIND: &str = "127.0.0.1:8000";
+pub fn webui_dir() -> Option<PathBuf> {
+    if let Ok(custom) = std::env::var("NETVAN_WEBUI_DIR") {
+        let p = PathBuf::from(custom);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            let alongside = exe_dir.join("webui");
+            if alongside.exists() {
+                return Some(alongside);
+            }
+        }
+    }
+    let manifest_dir = option_env!("CARGO_MANIFEST_DIR").map(PathBuf::from);
+    if let Some(manifest) = manifest_dir {
+        let in_repo = manifest
+            .join("../../..")
+            .join("netvan-webui")
+            .join("dist");
+        if in_repo.exists() {
+            return Some(in_repo);
+        }
+        let in_repo_root = manifest.join("../../../netvan-webui/dist");
+        if in_repo_root.exists() {
+            return Some(in_repo_root);
+        }
+    }
+    None
+}
+
+pub const DEFAULT_BIND: &str = "127.0.0.1:80";

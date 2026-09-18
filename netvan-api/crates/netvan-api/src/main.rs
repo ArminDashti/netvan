@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
-#[command(name = "netvan-api", about = "Netvan local API Windows service")]
+#[command(name = "Netvan", about = "Netvan — collectors + Web UI + HTTP/WebSocket API (http://netvan.local)")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -36,7 +36,27 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match cli.command.unwrap_or(Commands::Run) {
-        Commands::Run => http_server::run().await,
+        Commands::Run => {
+            #[cfg(windows)]
+            {
+                let service_result = tokio::task::spawn_blocking(move || {
+                    service::run_as_service()
+                })
+                .await;
+
+                match service_result {
+                    Ok(Ok(())) => return Ok(()),
+                    Ok(Err(_)) => {
+                        tracing::info!("Not running as Windows service; starting in standalone console mode");
+                    }
+                    Err(join_err) => {
+                        tracing::warn!("service dispatcher task join error: {join_err}; falling back to standalone mode");
+                    }
+                }
+            }
+
+            http_server::run_standalone().await
+        }
         Commands::Install => service::install(),
         Commands::Uninstall => service::uninstall(),
         Commands::Start => service::start(),

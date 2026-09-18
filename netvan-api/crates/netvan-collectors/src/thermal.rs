@@ -21,8 +21,13 @@ struct State {
     helper: Option<Helper>,
     snapshot: ThermalSnapshot,
     at: Option<Instant>,
-    spawn_failed: bool,
+    spawn_failed_at: Option<Instant>,
 }
+
+/// How long to wait before retrying a failed `netvan-hwmon` spawn.
+/// Without this the service would never pick up the helper if it was
+/// deployed after the service started (empty sensors forever).
+const SPAWN_RETRY: Duration = Duration::from_secs(30);
 
 static STATE: Lazy<Mutex<State>> = Lazy::new(|| {
     Mutex::new(State {
@@ -31,7 +36,7 @@ static STATE: Lazy<Mutex<State>> = Lazy::new(|| {
             sensors: Vec::new(),
         },
         at: None,
-        spawn_failed: false,
+        spawn_failed_at: None,
     })
 });
 
@@ -78,15 +83,20 @@ fn snapshot_windows() -> ThermalSnapshot {
 #[cfg(windows)]
 fn poll_helper(st: &mut State) -> anyhow::Result<ThermalSnapshot> {
     if st.helper.is_none() {
-        if st.spawn_failed {
-            return Ok(ThermalSnapshot {
-                sensors: Vec::new(),
-            });
+        if let Some(t) = st.spawn_failed_at {
+            if t.elapsed() < SPAWN_RETRY {
+                return Ok(ThermalSnapshot {
+                    sensors: Vec::new(),
+                });
+            }
         }
         match spawn_helper() {
-            Ok(h) => st.helper = Some(h),
+            Ok(h) => {
+                st.helper = Some(h);
+                st.spawn_failed_at = None;
+            }
             Err(e) => {
-                st.spawn_failed = true;
+                st.spawn_failed_at = Some(Instant::now());
                 warn!("netvan-hwmon spawn failed: {e:#}");
                 return Ok(ThermalSnapshot {
                     sensors: Vec::new(),
@@ -116,7 +126,7 @@ fn drop_helper(st: &mut State) {
         let _ = h.child.kill();
         let _ = h.child.wait();
     }
-    st.spawn_failed = false;
+    st.spawn_failed_at = None;
 }
 
 #[cfg(windows)]

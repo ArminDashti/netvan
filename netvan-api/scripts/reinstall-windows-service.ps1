@@ -1,10 +1,11 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-  Rebuild netvan-api release binary, remove the old Windows service, install and start the new one.
+  Rebuild Netvan release binary, remove the old Windows service, install and start the new one.
 
 .DESCRIPTION
-  Run this after any code change that affects the installed netvan-api Windows service.
+  Run this after any code change that affects the installed Netvan Windows service.
+  The single "Netvan" service covers both the Web UI and API (http://netvan.local).
   Must be elevated (Administrator).
 #>
 $ErrorActionPreference = "Stop"
@@ -39,6 +40,23 @@ function Find-ApiBinary {
   return $null
 }
 
+function Invoke-BestEffort {
+  param(
+    [Parameter(Mandatory = $true)][string]$ExePath,
+    [Parameter(Mandatory = $true)][string[]]$ExeArgs
+  )
+  $prevEA = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $ExePath @ExeArgs 2>&1 | Out-Null
+    return $LASTEXITCODE
+  } catch {
+    return 1
+  } finally {
+    $ErrorActionPreference = $prevEA
+  }
+}
+
 $target = Resolve-ApiCargoTarget
 Write-Host "==> cargo build -p netvan-api --release --target $target"
 cargo build -p netvan-api --release --target $target
@@ -52,13 +70,13 @@ if (-not $Exe) {
 }
 
 Write-Host "==> stop (ignore if not running)"
-& $Exe stop 2>$null
+Invoke-BestEffort -ExePath $Exe -ExeArgs @("stop") | Out-Null
 
 Write-Host "==> uninstall old service"
-& $Exe uninstall
-if ($LASTEXITCODE -ne 0) {
+$uninstallCode = Invoke-BestEffort -ExePath $Exe -ExeArgs @("uninstall")
+if ($uninstallCode -ne 0) {
   # Not installed yet is OK on first install
-  Write-Host "uninstall exited $LASTEXITCODE (continuing if service was absent)"
+  Write-Host "uninstall exited $uninstallCode (continuing if service was absent)"
 }
 
 Write-Host "==> install new service from $Exe"

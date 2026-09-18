@@ -80,7 +80,7 @@ export default defineConfig({
     port: Number(process.env.VITE_DEV_PORT ?? 8001),
     strictPort: true,
     host: process.env.VITE_DEV_HOST ?? "127.0.0.1",
-    allowedHosts: true,
+    allowedHosts: ["netvan.local", "netvan-api.local", "localhost", "127.0.0.1"],
     origin: process.env.VITE_DEV_ORIGIN,
     watch: {
       usePolling: process.env.CHOKIDAR_USEPOLLING === "true",

@@ -1,8 +1,9 @@
 use anyhow::Result;
+use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
-use axum::http::{HeaderValue, Method};
-use axum::response::IntoResponse;
+use axum::http::{HeaderValue, Method, Request, StatusCode, header};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::{SinkExt, StreamExt};
@@ -16,9 +17,12 @@ use netvan_core::ipc::{RpcRequest, RpcResponse};
 use netvan_core::paths::{self, DEFAULT_BIND};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tower::ServiceExt;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use tower_http::services::ServeDir;
 use tracing::info;
 
 #[derive(Clone)]
@@ -26,11 +30,25 @@ pub struct AppState {
     pub engine: Arc<CollectorEngine>,
 }
 
-pub async fn run() -> Result<()> {
+pub async fn run_standalone() -> Result<()> {
+    let shutdown = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    run(shutdown).await
+}
+
+pub async fn run(shutdown: impl Future<Output = ()> + Send + 'static) -> Result<()> {
     paths::ensure_data_dir()?;
     let db = Database::open_default()?;
     let engine = CollectorEngine::new(db)?;
     engine.clone().start_background().await;
+
+    let webui_dir = paths::webui_dir();
+    if let Some(dir) = &webui_dir {
+        info!("serving web UI from {}", dir.display());
+    } else {
+        info!("web UI not found; only /api endpoints will be available");
+    }
 
     let state = AppState { engine };
 
@@ -45,27 +63,113 @@ pub async fn run() -> Result<()> {
                 || s.starts_with("http://localhost:")
                 || s == "http://pc-armin"
                 || s.starts_with("http://pc-armin:")
+                || s == "http://netvan.local"
+                || s.starts_with("http://netvan.local:")
+                || s == "http://netvan-api.local"
+                || s.starts_with("http://netvan-api.local:")
                 || s == "null"
         }));
 
-    let app = Router::new()
+    let mut app = Router::new()
         .route("/api/health", get(health))
         .route("/api/data-dir", get(data_dir))
         .route("/api/rpc", post(rpc))
         .route("/api/ws/tools", get(ws_tools))
-        .with_state(state)
+        .with_state(state.clone())
         .layer(cors);
+
+    if let Some(dir) = webui_dir {
+        let serve_dir = ServeDir::new(dir.clone());
+        let index_path = dir.join("index.html");
+        app = app.fallback(move |req: Request<Body>| {
+            let index_path = index_path.clone();
+            let serve_dir = serve_dir.clone();
+            async move {
+                let path = req.uri().path().to_string();
+                if path.starts_with("/api/") {
+                    return (
+                        StatusCode::NOT_FOUND,
+                        Json(json!({ "error": "not found", "path": path })),
+                    )
+                        .into_response();
+                }
+                let has_ext = path
+                    .rsplit('/')
+                    .next()
+                    .and_then(|f| f.rsplit_once('.'))
+                    .map(|(name, _)| !name.is_empty())
+                    .unwrap_or(false);
+                match serve_dir.clone().oneshot(req).await {
+                    Ok(resp) => {
+                        if has_ext {
+                            return resp.into_response();
+                        }
+                        if resp.status() == StatusCode::NOT_FOUND {
+                            if let Ok(body) = std::fs::read(&index_path) {
+                                return Response::builder()
+                                    .status(StatusCode::OK)
+                                    .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+                                    .body(Body::from(body))
+                                    .unwrap_or_else(|_| {
+                                        (
+                                            StatusCode::INTERNAL_SERVER_ERROR,
+                                            "index.html read error",
+                                        )
+                                            .into_response()
+                                    });
+                            }
+                        }
+                        resp.into_response()
+                    }
+                    Err(_) => {
+                        if !has_ext {
+                            if let Ok(body) = std::fs::read(&index_path) {
+                                return Response::builder()
+                                    .status(StatusCode::OK)
+                                    .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+                                    .body(Body::from(body))
+                                    .unwrap_or_else(|_| {
+                                        (
+                                            StatusCode::INTERNAL_SERVER_ERROR,
+                                            "index.html read error",
+                                        )
+                                            .into_response()
+                                    });
+                            }
+                        }
+                        (StatusCode::NOT_FOUND, "not found").into_response()
+                    }
+                }
+            }
+        });
+    } else {
+        app = app.fallback(move |req: Request<Body>| async move {
+            let path = req.uri().path().to_string();
+            if path.starts_with("/api/") {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({ "error": "not found", "path": path })),
+                )
+                    .into_response();
+            }
+            let msg = "Netvan API running. Build web UI with: cd netvan-webui ; npm install ; npm run build\n\
+                     Then restart the service. Access the UI at: http://netvan.local";
+            (StatusCode::OK, [(header::CONTENT_TYPE, "text/plain; charset=utf-8")], msg).into_response()
+        });
+    }
 
     let bind = std::env::var("NETVAN_API_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_string());
     let addr: SocketAddr = bind.parse()?;
-    info!("netvan-api listening on http://{addr}");
+    info!("Netvan listening on http://{addr} (UI: http://netvan.local)");
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown)
+        .await?;
     Ok(())
 }
 
 async fn health() -> impl IntoResponse {
-    Json(json!({ "ok": true, "service": "netvan-api" }))
+    Json(json!({ "ok": true, "service": "Netvan" }))
 }
 
 async fn data_dir() -> impl IntoResponse {
