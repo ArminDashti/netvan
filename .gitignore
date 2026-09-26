@@ -186,3 +186,6 @@ netvan-api/target/x86_64-pc-windows-msvc/release/deps/libfutures_util-c869a2240e
 netvan-api/target/x86_64-pc-windows-msvc/release/deps/libfutures_util-c869a2240e2e7d82.rmeta
 netvan-api/target/x86_64-pc-windows-msvc/release/deps/libreqwest-3f8f550f7db6d4eb.rlib
 netvan-api/target/x86_64-pc-windows-msvc/release/deps/netvan_api.pdb
+
+# auto-managed large-file section (>5MB)
+# (paths appended by commit-push-to-github)
