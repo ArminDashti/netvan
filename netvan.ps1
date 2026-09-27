@@ -49,6 +49,19 @@ function Get-NetvanApiExe {
   return $null
 }
 
+# Find netvan-cli.exe (interactive TUI)
+function Get-NetvanCliExe {
+  $candidates = @(
+    (Join-Path $ApiRoot 'target\release\netvan-cli.exe'),
+    (Join-Path $ApiRoot 'target\x86_64-pc-windows-gnu\release\netvan-cli.exe'),
+    (Join-Path $ApiRoot 'target\x86_64-pc-windows-msvc\release\netvan-cli.exe')
+  )
+  foreach ($c in $candidates) {
+    if (Test-Path -LiteralPath $c) { return (Resolve-Path -LiteralPath $c).Path }
+  }
+  return $null
+}
+
 # Show help
 function Show-Help {
   Write-Host "Netvan CLI - manage Netvan Windows service"
@@ -56,6 +69,7 @@ function Show-Help {
   Write-Host "Usage: netvan <command> [args]"
   Write-Host ""
   Write-Host "Commands:"
+  Write-Host "  tui               Launch the interactive colorful terminal dashboard"
   Write-Host "  service start    Start the Netvan Windows service"
   Write-Host "  service stop     Stop the Netvan Windows service"
   Write-Host "  service restart  Restart the Netvan Windows service"
@@ -169,6 +183,19 @@ if ($Command -eq 'service') {
 
 # Other commands
 switch ($Command) {
+  'tui' {
+    $cliExe = Get-NetvanCliExe
+    if (-not $cliExe) {
+      Write-Host "Error: netvan-cli.exe not found. Build it first:"
+      Write-Host "  cd netvan-api"
+      Write-Host "  cargo build --release -p netvan-cli"
+      exit 1
+    }
+    $cliArgs = $Args
+    if (-not $cliArgs) { $cliArgs = @() }
+    & $cliExe @cliArgs
+    exit $LASTEXITCODE
+  }
   'doctor' {
     exit Invoke-Doctor
   }

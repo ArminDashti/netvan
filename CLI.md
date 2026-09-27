@@ -1,6 +1,69 @@
 # Netvan CLI
 
-The `netvan` CLI provides a unified interface for managing the Netvan Windows service.
+The `netvan` CLI provides a unified interface for managing the Netvan Windows service
+plus an interactive, colorful terminal dashboard (`netvan tui`).
+
+## Interactive TUI
+
+`netvan-cli` is a full-screen, modern-colorful terminal UI (ratatui) that reads live
+data from a running Netvan API over JSON-RPC (`POST /api/rpc`).
+
+### Launch
+
+```cmd
+:: via the wrapper (finds target\release\netvan-cli.exe)
+netvan tui
+
+:: or directly
+netvan-cli
+netvan-cli --api http://127.0.0.1:8000
+netvan-cli --poll-ms 1000
+```
+
+Environment overrides: `NETVAN_API_URL` (or `NETVAN_API_BASE`) for the endpoint,
+`NETVAN_API_BIND` as a fallback (rendered as `http://<bind>`).
+
+Headless connectivity check (prints the overview snapshot as JSON, exit code 1 if
+the API cannot be reached):
+
+```cmd
+netvan-cli --dump --api http://127.0.0.1:8000
+```
+
+Build it:
+
+```powershell
+cd netvan-api
+cargo build --release -p netvan-cli
+```
+
+### Tabs
+
+| # | Tab | Shows |
+| --- | --- | --- |
+| 1 | Overview | CPU / memory / disk gauges, adapter summary, throughput sparkline, service status |
+| 2 | NICs | adapter table (link speed, IPv4, Wi-Fi, RSSI, live rx/tx) with a selectable NIC filter |
+| 3 | Bandwidth | rx/tx line chart for today plus now / avg / peak rates |
+| 4 | Latency | ping RTT + HTTP total charts and link up/down events |
+| 5 | System | per-core CPU bars, memory, disk volumes, thermal sensors |
+| 6 | Apps | top processes by traffic today |
+| 7 | Tools | run ping, HTTP latency, traceroute, nslookup, speedtest and read the output |
+
+### Keys
+
+- `1`…`7` jump to a tab, `Tab` / `Shift+Tab` cycle, `r` refresh, `?` help, `q` quit
+- NICs / Bandwidth / Latency: `↑`/`↓` move the cursor (row 1 = all NICs), `Enter` applies the filter
+- Tools: `←`/`→` switch tool, `i`/`Enter` focus the target input, `r` run, `c` clear,
+  `↑`/`↓` scroll output, `a` accept the Ookla speedtest EULA
+
+### Behavior
+
+- The active view polls the API every 1.5 s (configurable with `--poll-ms`);
+  other tabs refresh when you switch to them.
+- If the API is not reachable the UI stays up and shows an OFFLINE banner with
+  recovery hints.
+- Tool runs (ping / traceroute / speedtest …) execute on the API host and stream
+  their result back into the output panel.
 
 ## Installation
 
