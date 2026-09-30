@@ -183,6 +183,21 @@ if ($IsUpgrade) {
 Write-Host "==> Copying new executable..."
 Copy-Item -Path $SourceExe -Destination (Join-Path $InstallDir $ExeName) -Force
 
+# Authenticode-sign the installed binary for 'Dashti Technologies LLC' + emit SHA256.
+# Best-effort: continues (with hashes only) when no cert/signtool is present.
+$NewExePath = Join-Path $InstallDir $ExeName
+$SignScript = Join-Path $RepoRoot "scripts\Sign-Binaries.ps1"
+if (Test-Path -LiteralPath $SignScript) {
+    Write-Host "==> Signing + hashing $ExeName ..."
+    try {
+        & $SignScript -Files $NewExePath
+    } catch {
+        Write-Warning "Sign-Binaries failed (non-fatal): $_"
+    }
+} else {
+    Write-Warning "Sign script not found at $SignScript; skipping signing/hashing."
+}
+
 Write-Host "==> Copying thermal helper (netvan-hwmon + LibreHardwareMonitor)..."
 $SourceDir = Split-Path -Parent $SourceExe
 $HwmonFiles = @(

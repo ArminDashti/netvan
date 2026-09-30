@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
-#[command(name = "Netvan", about = "Netvan — collectors + Web UI + HTTP/WebSocket API (http://netvan.local)")]
+#[command(name = "Netvan", version, about = "Netvan — collectors + Web UI + HTTP/WebSocket API (http://netvan.local)")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -26,6 +26,8 @@ enum Commands {
     Stop,
     /// Print service install/running status
     Status,
+    /// Print version
+    Version,
 }
 
 #[tokio::main]
@@ -62,5 +64,9 @@ async fn main() -> Result<()> {
         Commands::Start => service::start(),
         Commands::Stop => service::stop(),
         Commands::Status => service::status(),
+        Commands::Version => {
+            println!("netvan-api {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
     }
 }

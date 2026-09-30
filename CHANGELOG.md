@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Embed Windows version resource (`CompanyName=Dashti Technologies LLC`,
+  product metadata, file/product version) into `netvan-api.exe` and
+  `netvan-cli.exe` via `winres` build scripts.
+- Add `scripts/Sign-Binaries.ps1` (Authenticode SHA256 + RFC3161 timestamp
+  for Dashti Technologies LLC + SHA256 sidecars/manifest) and
+  `scripts/Verify-Hash.ps1`; hook best-effort sign+hash into
+  `scripts/install-win-x64.ps1`. See `docs/code-signing.md`.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added

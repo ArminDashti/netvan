@@ -100,19 +100,40 @@ netvan <command>
 ## Commands
 
 ### Service Management
-- `netvan install` - Install the Netvan Windows service
 - `netvan service start` - Start the Netvan Windows service
-- `netvan service stop` - Stop the Netvan Windows service  
+- `netvan service stop` - Stop the Netvan Windows service
 - `netvan service restart` - Restart the Netvan Windows service
 - `netvan service status` - Show service install/running status
+- `netvan install` - Install the Netvan Windows service
 
-### Development
-- `netvan run` - Run in foreground (dev/console mode)
-- `netvan doctor` - Run diagnostics and checks
-
-### Maintenance
-- `netvan uninstall` - Uninstall the Windows service
+### App
+- `netvan doctor` - Run diagnostics (binaries, service, API health, data dir, WebUI, hosts entry)
 - `netvan help` - Show help message
+- `netvan version` - Print CLI + service binary versions
+- `netvan remove [--purge]` - Stop + uninstall the service (`--purge` also deletes the data dir)
+- `netvan update` - Rebuild API + CLI + WebUI, restart the service if it was running
+- `netvan webui [--url <url>]` - Open the Web UI in the default browser
+
+### Stats (headless, work despite the GUI; add `--json` for automation)
+- `netvan overview` - Service + cpu + memory + disks + NICs
+- `netvan cpu` - CPU snapshot (brand, load, per-core)
+- `netvan memory` - Memory snapshot
+- `netvan disk` - Disk volumes
+- `netvan network` - NIC table (link, IPv4, live rx/tx)
+- `netvan os` - OS / host / API reachability
+- `netvan machine info` - Static hardware inventory (cpu/mem/disks/gpus/board)
+
+### Live (streaming, Ctrl+C stops, `--interval-ms N`)
+- `netvan cpu live` - Stream CPU load
+- `netvan memory live` - Stream memory usage
+- `netvan disk live` - Stream disk usage
+- `netvan network live` - Stream NIC throughput
+- `netvan live` - Full live view (cpu + memory + network)
+- `netvan tui` - Interactive colorful terminal dashboard
+
+Style: geek-lovely 24-bit color + nerd glyphs + block meters.
+Disable with `--plain` or `NO_COLOR=1`. `cpu`/`memory`/`disk`/`os`
+fall back to local collection when the API is down.
 
 ## Examples
 
