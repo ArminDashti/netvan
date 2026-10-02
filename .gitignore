@@ -189,3 +189,4 @@ netvan-api/target/x86_64-pc-windows-msvc/release/deps/netvan_api.pdb
 
 # auto-managed large-file section (>5MB)
 # (paths appended by commit-push-to-github)
+# commit-push-to-github: ignore files > 5MB
