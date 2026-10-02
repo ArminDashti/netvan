@@ -254,7 +254,6 @@ export function SpeedtestPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Speed Test</h1>
         <div className="flex flex-wrap items-center gap-2">
           {busy && (
             <Button variant="outline" onClick={() => void cancel()}>

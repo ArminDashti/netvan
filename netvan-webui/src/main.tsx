@@ -8,7 +8,7 @@ import "./index.css";
 
 registerSW({ immediate: true });
 
-applyTheme("midnight");
+applyTheme("dark-plus");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

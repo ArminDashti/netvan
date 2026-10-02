@@ -56,7 +56,7 @@ export function HwVendorLogo({
     <img
       src={LOGOS[vendor]}
       alt={vendor}
-      className={className}
+      className={`dark-theme-logo ${className ?? ""}`}
       width={56}
       height={40}
       draggable={false}

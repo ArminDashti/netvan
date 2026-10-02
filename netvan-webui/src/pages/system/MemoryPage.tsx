@@ -68,7 +68,7 @@ export function MemoryPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Memory</h2>
+
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_220px]">

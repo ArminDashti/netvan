@@ -48,6 +48,7 @@ impl StripSlot {
 #[serde(rename_all = "kebab-case")]
 pub enum AppTheme {
     #[default]
+    DarkPlus,
     Midnight,
     Light,
     Nord,
@@ -58,6 +59,7 @@ pub enum AppTheme {
 impl AppTheme {
     pub fn as_str(&self) -> &'static str {
         match self {
+            AppTheme::DarkPlus => "dark-plus",
             AppTheme::Midnight => "midnight",
             AppTheme::Light => "light",
             AppTheme::Nord => "nord",
@@ -68,6 +70,7 @@ impl AppTheme {
 
     pub fn parse(s: &str) -> Self {
         match s {
+            "dark-plus" => AppTheme::DarkPlus,
             "light" => AppTheme::Light,
             "nord" => AppTheme::Nord,
             "dracula" => AppTheme::Dracula,
@@ -173,7 +176,7 @@ impl Default for AppSettings {
             ignored_apps: Vec::new(),
             ignored_ips: Vec::new(),
             ignored_urls: Vec::new(),
-            theme: AppTheme::Midnight,
+            theme: AppTheme::DarkPlus,
             system_interval_ms: default_system_interval_ms(),
             system_persist_interval_ms: default_system_persist_interval_ms(),
             system_raw_retention_days: default_system_raw_retention_days(),

@@ -33,12 +33,11 @@ export function ThermalPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Thermal</h2>
       {error && <p className="text-sm text-red-400">{error}</p>}
       {groups.length === 0 && !error && (
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          No temperature sensors reported. The LibreHardwareMonitor helper may be missing, or this
-          machine exposes none.
+          No temperature sensors reported. Netvan tried LibreHardwareMonitor and the native Windows
+          ACPI thermal interface, but this machine did not expose a readable temperature sensor.
         </p>
       )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

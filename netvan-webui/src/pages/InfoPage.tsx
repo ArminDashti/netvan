@@ -134,6 +134,7 @@ function GpuCards({
 export function InfoPage() {
   const [inv, setInv] = useState<HardwareInventory | null>(null);
   const [gpuTemps, setGpuTemps] = useState<{ label: string; value: string }[]>([]);
+  const [cpuTemp, setCpuTemp] = useState("—");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -161,6 +162,8 @@ export function InfoPage() {
               value: formatCelsius(s.celsius),
             })),
           );
+          const cpu = r.data.sensors.find((s) => s.hardware_kind === "cpu" && s.celsius != null);
+          setCpuTemp(formatCelsius(cpu?.celsius));
         })
         .catch(() => {
           if (alive) setGpuTemps([]);
@@ -180,13 +183,6 @@ export function InfoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Info</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          Hardware inventory for this machine
-        </p>
-      </div>
-
       {error && (
         <p className="text-sm text-red-400">{error}</p>
       )}
@@ -204,6 +200,7 @@ export function InfoPage() {
           <SpecRow label="Logical processors">
             {cpu && cpu.logical_processors > 0 ? String(cpu.logical_processors) : "—"}
           </SpecRow>
+          <SpecRow label="Temperature">{cpuTemp}</SpecRow>
         </HwCard>
 
         <HwCard

@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 function formatCellGb(bytes: number): string {
   const gb = bytes / 1024 ** 3;
   if (gb >= 10) return gb.toFixed(1);
-  if (gb >= 1) return gb.toFixed(2);
-  if (gb >= 0.01) return gb.toFixed(2);
-  if (bytes > 0) return "<0.01";
+  if (gb >= 1) return gb.toFixed(1);
+  if (gb >= 0.1) return gb.toFixed(1);
+  if (bytes > 0) return "<0.1";
   return "0";
 }
 

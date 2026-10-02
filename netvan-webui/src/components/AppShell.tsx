@@ -123,7 +123,7 @@ export function AppShell() {
     const load = () => {
       rpc<{ type: "Settings"; data: AppSettings }>({ method: "GetSettings" })
         .then((r) => {
-          applyTheme(r.data.theme ?? "midnight");
+          applyTheme(r.data.theme ?? "dark-plus");
           setApiOk(true);
         })
         .catch(() => setApiOk(false));

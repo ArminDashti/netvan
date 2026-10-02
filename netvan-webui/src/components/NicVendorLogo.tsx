@@ -46,7 +46,7 @@ export function NicVendorLogo({
     <img
       src={LOGOS[vendor]}
       alt={vendor}
-      className={className}
+      className={`dark-theme-logo ${className ?? ""}`}
       width={40}
       height={40}
       draggable={false}

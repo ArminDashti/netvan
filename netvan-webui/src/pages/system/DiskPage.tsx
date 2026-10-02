@@ -91,7 +91,7 @@ export function DiskPage({ kind }: { kind: DiskKind }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">{title}</h2>
+
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {disks.length === 0 ? (

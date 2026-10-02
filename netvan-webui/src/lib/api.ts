@@ -13,7 +13,13 @@ export type HistoryRange =
 
 export type CaptureMode = "process";
 export type StripSlot = "widgets_start" | "near_tray";
-export type AppTheme = "midnight" | "light" | "nord" | "dracula" | "tokyo-night";
+export type AppTheme =
+  | "dark-plus"
+  | "midnight"
+  | "light"
+  | "nord"
+  | "dracula"
+  | "tokyo-night";
 
 export interface NicInfo {
   id: string;

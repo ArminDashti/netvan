@@ -184,13 +184,6 @@ export function NicsPage() {
 
   return (
     <div className="flex h-[calc(100vh-3rem)] min-h-[480px] flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">NICs</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          Adapters, details, and usage history
-        </p>
-      </div>
-
       {actionMsg && (
         <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm">
           {actionMsg}

@@ -62,12 +62,19 @@ fn snapshot_windows() -> ThermalSnapshot {
         }
     }
 
-    match poll_helper(&mut st) {
-        Ok(snap) => {
+    return match poll_helper(&mut st) {
+        Ok(mut snap) => {
+            if snap.sensors.is_empty() {
+                match native_wmi_snapshot() {
+                    Ok(native) => snap = native,
+                    Err(e) => warn!("native Windows thermal query failed: {e:#}"),
+                }
+            }
             st.snapshot = snap.clone();
             st.at = Some(Instant::now());
             snap
         }
+
         Err(e) => {
             warn!("thermal helper: {e:#}");
             drop_helper(&mut st);
@@ -77,6 +84,57 @@ fn snapshot_windows() -> ThermalSnapshot {
             st.at = Some(Instant::now());
             st.snapshot.clone()
         }
+    };
+
+    #[cfg(windows)]
+    fn native_wmi_snapshot() -> anyhow::Result<ThermalSnapshot> {
+        use anyhow::Context;
+        use serde::Deserialize;
+        use wmi::{COMLibrary, WMIConnection};
+
+        #[derive(Deserialize)]
+        struct ThermalZone {
+            #[serde(rename = "CurrentTemperature")]
+            current_temperature: Option<u32>,
+            #[serde(rename = "InstanceName")]
+            instance_name: Option<String>,
+        }
+
+        let com = COMLibrary::new().context("initialize WMI COM")?;
+        let wmi = WMIConnection::new(com).context("connect to WMI")?;
+        let rows: Vec<ThermalZone> = wmi.raw_query(
+            "SELECT CurrentTemperature, InstanceName FROM MSAcpi_ThermalZoneTemperature",
+        )?;
+
+        let sensors = rows
+            .into_iter()
+            .filter_map(|row| {
+                let raw = row.current_temperature?;
+                if raw == 0 {
+                    return None;
+                }
+                let celsius = raw as f64 / 10.0 - 273.15;
+                if !(-50.0..=150.0).contains(&celsius) {
+                    return None;
+                }
+                let name = row
+                    .instance_name
+                    .as_deref()
+                    .and_then(|v| v.rsplit('\\').next())
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or("ACPI thermal zone")
+                    .to_string();
+                Some(netvan_core::types::ThermalSensor {
+                    id: format!("wmi:{name}"),
+                    hardware_kind: netvan_core::types::HardwareKind::Motherboard,
+                    hardware_name: "Windows ACPI".into(),
+                    sensor_name: name,
+                    celsius: Some(celsius),
+                })
+            })
+            .collect();
+
+        Ok(ThermalSnapshot { sensors })
     }
 }
 

@@ -35,6 +35,7 @@ const CATEGORIES: { id: CategoryId; label: string }[] = [
 ];
 
 const THEMES: { id: AppTheme; label: string; swatch: [string, string, string] }[] = [
+  { id: "dark-plus", label: "Dark+", swatch: ["#1e1e1e", "#3794ff", "#252526"] },
   { id: "midnight", label: "Midnight", swatch: ["#0b1220", "#3d9cf0", "#121a2b"] },
   { id: "light", label: "Light", swatch: ["#f4f6fa", "#2563eb", "#ffffff"] },
   { id: "nord", label: "Nord", swatch: ["#2e3440", "#88c0d0", "#3b4252"] },
@@ -114,7 +115,7 @@ function normalizeSettings(data: AppSettings): AppSettings {
     ignored_apps: data.ignored_apps ?? [],
     ignored_ips: data.ignored_ips ?? [],
     ignored_urls: data.ignored_urls ?? [],
-    theme: data.theme ?? "midnight",
+    theme: data.theme ?? "dark-plus",
     capture_mode: "process",
   };
 }
@@ -134,7 +135,7 @@ export function SettingsPage() {
     ]);
     const next = normalizeSettings(s.data);
     setSettings(next);
-    applyTheme(next.theme ?? "midnight");
+    applyTheme(next.theme ?? "dark-plus");
     setDataDir(dir);
     setNics(nicRes.data.filter((n) => n.media_type !== "Loopback"));
   };
@@ -196,8 +197,6 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-
       {msg && (
         <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm">
           {msg}
@@ -232,7 +231,7 @@ export function SettingsPage() {
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {THEMES.map((t) => {
-                    const active = (settings.theme ?? "midnight") === t.id;
+                    const active = (settings.theme ?? "dark-plus") === t.id;
                     return (
                       <button
                         key={t.id}

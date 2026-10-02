@@ -59,6 +59,8 @@ pub fn resolve_cli_path(configured: Option<&str>) -> PathBuf {
     candidates.extend([
         data_dir().join("speedtest.exe"),
         data_dir().join("ookla").join("speedtest.exe"),
+        PathBuf::from(r"C:\ProgramData\Netvan\NetvanApi\speedtest.exe"),
+        PathBuf::from(r"C:\ProgramData\Netvan\NetvanApi\speedtest\speedtest.exe"),
         PathBuf::from("speedtest.exe"),
         PathBuf::from(r"C:\Program Files\Ookla\Speedtest CLI\speedtest.exe"),
     ]);

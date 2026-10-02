@@ -128,8 +128,6 @@ export function AppsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Apps</h1>
-
       {msg && (
         <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm">
           {msg}

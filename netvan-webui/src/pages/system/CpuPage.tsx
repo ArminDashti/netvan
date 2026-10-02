@@ -111,7 +111,6 @@ export function CpuPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">CPU</h2>
       {error && (
         <p className="text-sm text-red-400">{error}</p>
       )}

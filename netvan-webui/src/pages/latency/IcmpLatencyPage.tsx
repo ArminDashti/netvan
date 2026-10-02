@@ -121,7 +121,7 @@ export function IcmpLatencyPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold">ICMP</h2>
+
         <Button onClick={() => setModalOpen(true)}>Add host</Button>
       </div>
 
