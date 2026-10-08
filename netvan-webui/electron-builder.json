@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/docs/configuration-schema.json",
+  "productName": "Netvan",
+  "directories": {
+    "output": "release",
+    "app": "."
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "public/**/*"
+  ],
+  "mac": {
+    "target": "dmg",
+    "icon": "public/icons/icon-512.png"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "public/icons/icon-512.png",
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "public/icons/icon-512.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Netvan"
+  }
+}

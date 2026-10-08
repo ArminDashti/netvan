@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build:electron": "node scripts/build-electron.mjs",
+    "preview": "vite preview",
+    "electron": "vite --mode electron && electron .",
+    "make": "npm run build:electron"
   },
+  "main": "dist-electron/main.js",
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-scroll-area": "^1.2.9",
@@ -38,9 +42,12 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "electron": "^37.0.0",
+    "electron-builder": "^26.15.3",
     "tailwindcss": "^4.1.11",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
+    "vite-plugin-electron": "^1.1.2",
     "vite-plugin-pwa": "^1.0.0",
     "workbox-window": "^7.3.0"
   }
