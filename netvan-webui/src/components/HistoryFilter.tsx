@@ -1,5 +1,4 @@
 import { type HistoryRange } from "@/lib/api";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +17,8 @@ export function HistoryFilter({
   customEnd,
   onCustomStart,
   onCustomEnd,
+  labels,
+  className,
 }: {
   value: HistoryRange;
   onChange: (v: HistoryRange) => void;
@@ -25,20 +26,28 @@ export function HistoryFilter({
   customEnd?: string;
   onCustomStart?: (v: string) => void;
   onCustomEnd?: (v: string) => void;
+  labels?: Partial<Record<HistoryRange, string>>;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {RANGES.map((r) => (
-        <Button
-          key={r.id}
-          size="sm"
-          variant={value === r.id ? "default" : "outline"}
-          onClick={() => onChange(r.id)}
-          className={cn(value === r.id && "shadow")}
-        >
-          {r.label}
-        </Button>
-      ))}
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-1">
+        {RANGES.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => onChange(r.id)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              value === r.id
+                ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+                : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
+            )}
+          >
+            {labels?.[r.id] ?? r.label}
+          </button>
+        ))}
+      </div>
       {value === "custom" && (
         <>
           <Input
