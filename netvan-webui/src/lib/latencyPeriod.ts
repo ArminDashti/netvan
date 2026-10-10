@@ -146,6 +146,32 @@ export function buildPeriodColumns(
   return cols;
 }
 
+/** 12-hour clock label for heatmap headers (e.g. `12 AM`, `2 PM`). */
+export function formatHour12Label(hour: number): string {
+  const h = ((hour % 24) + 24) % 24;
+  if (h === 0) return "12 AM";
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return "12 PM";
+  return `${h - 12} PM`;
+}
+
+/** Full local calendar day split into 24 hourly buckets. */
+export function buildFullDayHourColumns(day: Date): PeriodColumn[] {
+  const startDay = startOfLocalDay(day);
+  return Array.from({ length: 24 }, (_, hour) => {
+    const start = new Date(startDay);
+    start.setHours(hour, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(hour + 1, 0, 0, 0);
+    return {
+      key: `h-${hour}`,
+      label: formatHour12Label(hour),
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+    };
+  });
+}
+
 export type SamplePoint = {
   ts: number; // unix seconds
   value: number | null;

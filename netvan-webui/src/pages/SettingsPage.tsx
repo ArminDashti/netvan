@@ -104,6 +104,16 @@ function IgnoreListEditor({
   );
 }
 
+function OpenDataDirButton() {
+  const netvan = typeof window !== "undefined" ? (window as unknown as { netvan?: { openDataDir?: () => Promise<void> } }).netvan : undefined;
+  if (!netvan?.openDataDir) return null;
+  return (
+    <Button type="button" variant="outline" onClick={() => void netvan.openDataDir?.()}>
+      Open data directory
+    </Button>
+  );
+}
+
 function normalizeSettings(data: AppSettings): AppSettings {
   return {
     ...data,
@@ -529,7 +539,10 @@ export function SettingsPage() {
                 <div className="text-xs text-[var(--color-muted-foreground)]">
                   Data directory: {dataDir}
                 </div>
-                <Button onClick={() => void save()}>Save</Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => void save()}>Save</Button>
+                  <OpenDataDirButton />
+                </div>
               </CardContent>
             </Card>
           )}

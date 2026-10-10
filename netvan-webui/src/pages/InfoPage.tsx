@@ -1,21 +1,67 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { HwVendorLogo } from "@/components/HwVendorLogo";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
+import { CircuitBoard, Cpu, Gpu, HardDrive, MemoryStick, type LucideIcon } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import {
   rpc,
   type DiskInfo,
   type GpuInfo,
   type HardwareInventory,
+  type MemoryInfo,
   type ThermalSnapshot,
 } from "@/lib/api";
-import { matchHwVendor } from "@/lib/hwVendor";
 import { formatBytes } from "@/lib/systemMetrics";
 import { formatCelsius, pickGpuSensors } from "@/lib/thermal";
+import { cn } from "@/lib/utils";
+
+type Accent = {
+  icon: string;
+  bar: string;
+  button: string;
+};
+
+const ACCENT = {
+  cpu: {
+    icon: "bg-sky-500/15 text-sky-400",
+    bar: "bg-sky-500",
+    button: "bg-sky-600 hover:bg-sky-500",
+  },
+  memory: {
+    icon: "bg-violet-500/15 text-violet-400",
+    bar: "bg-violet-500",
+    button: "bg-violet-600 hover:bg-violet-500",
+  },
+  storage: {
+    icon: "bg-emerald-500/15 text-emerald-400",
+    bar: "bg-emerald-500",
+    button: "bg-emerald-600 hover:bg-emerald-500",
+  },
+  gpu: {
+    icon: "bg-blue-500/15 text-blue-400",
+    bar: "bg-blue-500",
+    button: "bg-blue-600 hover:bg-blue-500",
+  },
+  board: {
+    icon: "bg-amber-500/15 text-amber-400",
+    bar: "bg-amber-500",
+    button: "bg-amber-600 hover:bg-amber-500",
+  },
+} satisfies Record<string, Accent>;
 
 function formatMhz(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value) || value <= 0) return "—";
   if (value >= 1000) return `${(value / 1000).toFixed(2)} GHz`;
   return `${value} MHz`;
+}
+
+function formatMemMhz(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "—";
+  return `${value} MHz`;
+}
+
+function formatMt(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "—";
+  return String(value);
 }
 
 function brandModel(brand: string, model: string): string {
@@ -28,106 +74,156 @@ function brandModel(brand: string, model: string): string {
   return b || m || "—";
 }
 
-function SpecRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex justify-between gap-3 text-sm">
-      <span className="text-[var(--color-muted-foreground)]">{label}</span>
-      <span className="text-right font-medium tabular-nums">{children}</span>
-    </div>
-  );
-}
-
 function orDash(value: string | null | undefined): string {
   const v = value?.trim();
   return v ? v : "—";
 }
 
-function HwCard({
-  title,
-  brand,
-  model,
-  children,
-}: {
-  title: string;
-  brand: string;
-  model: string;
-  children: ReactNode;
-}) {
-  const vendor = matchHwVendor(brand, model);
+function countText(value: number | null | undefined): string {
+  return value != null && value > 0 ? String(value) : "—";
+}
+
+function memorySubtitle(mem: MemoryInfo | undefined): string {
+  if (!mem) return "—";
+  const name = brandModel(mem.brand, mem.model);
+  const typ = mem.memory_type?.trim();
+  if (typ && name !== "—" && !name.toLowerCase().includes(typ.toLowerCase())) {
+    return `${name} ${typ}`;
+  }
+  return name;
+}
+
+function primaryDisk(disks: DiskInfo[]): DiskInfo | undefined {
+  const ssds = disks.filter((d) => d.kind === "ssd");
+  const pool = ssds.length > 0 ? ssds : disks;
+  return [...pool].sort((a, b) => b.capacity_bytes - a.capacity_bytes)[0];
+}
+
+function gpuMemoryKind(gpu: GpuInfo): "Shared" | "Dedicated" {
+  const s = `${gpu.brand} ${gpu.model}`.toLowerCase();
+  if (/\barc\b|rtx|gtx|radeon rx|geforce|quadro/.test(s)) return "Dedicated";
+  if (/uhd|iris|intel|radeon\(tm\) graphics/.test(s)) return "Shared";
+  return "Dedicated";
+}
+
+function HeroMetric({ text }: { text: string }) {
+  const match = /^([\d.]+)\s*(.*)$/.exec(text.trim());
+  if (!match) {
+    return <p className="text-right text-2xl font-semibold tabular-nums">{text}</p>;
+  }
   return (
-    <Card>
-      <CardHeader className="flex-row items-center gap-3 space-y-0 py-3">
-        <HwVendorLogo vendor={vendor} className="h-10 w-14 shrink-0 object-contain" />
-        <div className="min-w-0">
-          <CardTitle className="text-base">{title}</CardTitle>
-          <p className="whitespace-normal break-words text-sm text-[var(--color-muted-foreground)]">
-            {brandModel(brand, model)}
-          </p>
+    <div className="shrink-0 text-right">
+      <p className="text-3xl font-semibold leading-none tabular-nums tracking-tight">{match[1]}</p>
+      {match[2] ? (
+        <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">{match[2]}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  accent,
+  title,
+  subtitle,
+  metric,
+  stats,
+  bar,
+}: {
+  icon: LucideIcon;
+  accent: Accent;
+  title: string;
+  subtitle: string;
+  metric: string;
+  stats: { value: string; label: string }[];
+  bar: "full" | "short" | "none";
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                accent.icon,
+              )}
+            >
+              <Icon className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-[var(--color-muted-foreground)]">{title}</p>
+              <p className="line-clamp-2 text-sm font-medium">{subtitle}</p>
+            </div>
+          </div>
+          <HeroMetric text={metric} />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-1.5">{children}</CardContent>
+        <div
+          className="mt-4 grid gap-2"
+          style={{ gridTemplateColumns: `repeat(${Math.max(stats.length, 1)}, minmax(0, 1fr))` }}
+        >
+          {stats.map((stat, index) => (
+            <div key={stat.label}>
+              <p className="text-sm font-semibold tabular-nums">{stat.value}</p>
+              <p className="text-xs text-[var(--color-muted-foreground)]">{stat.label}</p>
+              {bar === "short" && index === 0 ? (
+                <div className={cn("mt-2 h-0.5 w-8 rounded-full", accent.bar)} />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+      {bar === "full" ? <div className={cn("h-1", accent.bar)} /> : null}
     </Card>
   );
 }
 
-function DiskCards({ disks, kind, title }: { disks: DiskInfo[]; kind: "ssd" | "hdd"; title: string }) {
-  const filtered = disks.filter((d) => d.kind === kind);
-  if (filtered.length === 0) return null;
-  return (
-    <>
-      {filtered.map((d, i) => (
-        <HwCard
-          key={`${kind}-${i}-${d.model}`}
-          title={filtered.length > 1 ? `${title} ${i + 1}` : title}
-          brand={d.brand}
-          model={d.model}
-        >
-          <SpecRow label="Capacity">{formatBytes(d.capacity_bytes)}</SpecRow>
-          <SpecRow label="Interface">{orDash(d.interface_type)}</SpecRow>
-          <SpecRow label="Media">{orDash(d.media_type)}</SpecRow>
-          <SpecRow label="Partitions">
-            {d.partitions != null ? String(d.partitions) : "—"}
-          </SpecRow>
-          <SpecRow label="Firmware">{orDash(d.firmware_revision)}</SpecRow>
-          <SpecRow label="Serial">{orDash(d.serial_number)}</SpecRow>
-        </HwCard>
-      ))}
-    </>
-  );
-}
-
-function GpuCards({
-  gpus,
-  temps,
+function DetailCard({
+  icon: Icon,
+  accent,
+  title,
+  rows,
+  action,
 }: {
-  gpus: GpuInfo[];
-  temps: { label: string; value: string }[];
+  icon: LucideIcon;
+  accent: Accent;
+  title: string;
+  rows: { label: string; value: ReactNode }[];
+  action?: { to: string; label: string };
 }) {
-  if (gpus.length === 0) {
-    return (
-      <HwCard title="GPU" brand="" model="">
-        <p className="text-sm text-[var(--color-muted-foreground)]">No GPU detected</p>
-      </HwCard>
-    );
-  }
   return (
-    <>
-      {gpus.map((g, i) => (
-        <HwCard
-          key={`gpu-${i}-${g.model}`}
-          title={gpus.length > 1 ? `GPU ${i + 1}` : "GPU"}
-          brand={g.brand}
-          model={g.model}
-        >
-          <SpecRow label="Memory">
-            {g.memory_bytes != null ? formatBytes(g.memory_bytes) : "—"}
-          </SpecRow>
-          <SpecRow label="CUDA">{g.cuda_cores != null ? g.cuda_cores.toLocaleString() : "—"}</SpecRow>
-          <SpecRow label="Tensor">{g.tensor_cores != null ? g.tensor_cores.toLocaleString() : "—"}</SpecRow>
-          <SpecRow label="Temperature">{temps[i]?.value ?? "—"}</SpecRow>
-        </HwCard>
-      ))}
-    </>
+    <Card className="flex h-full flex-col">
+      <div className="flex items-center gap-2 px-4 pt-4">
+        <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", accent.icon)}>
+          <Icon className="h-4 w-4" aria-hidden />
+        </div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+      </div>
+      <div className="flex-1 px-4 py-2">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-center justify-between gap-3 border-b border-[var(--color-border)]/70 py-2.5 text-sm last:border-b-0"
+          >
+            <span className="text-[var(--color-muted-foreground)]">{row.label}</span>
+            <span className="text-right font-medium">{row.value}</span>
+          </div>
+        ))}
+      </div>
+      {action ? (
+        <div className="p-3 pt-1">
+          <Link
+            to={action.to}
+            className={cn(
+              "flex h-9 items-center justify-center rounded-md text-sm font-medium text-white transition-colors",
+              accent.button,
+            )}
+          >
+            {action.label}
+          </Link>
+        </div>
+      ) : null}
+    </Card>
   );
 }
 
@@ -180,61 +276,191 @@ export function InfoPage() {
   const cpu = inv?.cpu;
   const mem = inv?.memory;
   const mb = inv?.motherboard;
+  const disks = inv?.disks ?? [];
+  const gpus = inv?.gpus ?? [];
+  const disk = primaryDisk(disks);
+  const gpu = gpus[0];
+  const memSpeed = mem?.configured_speed_mhz ?? mem?.speed_mhz;
 
   return (
-    <div className="space-y-6">
-      {error && (
-        <p className="text-sm text-red-400">{error}</p>
-      )}
+    <div className="space-y-4">
+      {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr]">
-        <HwCard
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard
+          icon={Cpu}
+          accent={ACCENT.cpu}
           title="CPU"
-          brand={cpu?.brand ?? ""}
-          model={cpu?.model ?? ""}
-        >
-          <SpecRow label="Base speed">{formatMhz(cpu?.base_speed_mhz)}</SpecRow>
-          <SpecRow label="Cores">
-            {cpu?.physical_cores != null ? String(cpu.physical_cores) : "—"}
-          </SpecRow>
-          <SpecRow label="Logical processors">
-            {cpu && cpu.logical_processors > 0 ? String(cpu.logical_processors) : "—"}
-          </SpecRow>
-          <SpecRow label="Temperature">{cpuTemp}</SpecRow>
-        </HwCard>
-
-        <HwCard
+          subtitle={brandModel(cpu?.brand ?? "", cpu?.model ?? "")}
+          metric={formatMhz(cpu?.base_speed_mhz)}
+          bar="short"
+          stats={[
+            { value: countText(cpu?.physical_cores), label: "Cores" },
+            { value: countText(cpu?.logical_processors), label: "Threads" },
+          ]}
+        />
+        <SummaryCard
+          icon={MemoryStick}
+          accent={ACCENT.memory}
           title="Memory"
-          brand={mem?.brand ?? ""}
-          model={mem?.model ?? ""}
-        >
-          <SpecRow label="Total size">{mem ? formatBytes(mem.size_bytes) : "—"}</SpecRow>
-          <SpecRow label="Modules">
-            {mem?.modules != null && mem.modules > 0 ? String(mem.modules) : "—"}
-          </SpecRow>
-          <SpecRow label="Per module">
-            {mem?.module_size_bytes != null ? formatBytes(mem.module_size_bytes) : "—"}
-          </SpecRow>
-          <SpecRow label="Type">{orDash(mem?.memory_type)}</SpecRow>
-          <SpecRow label="Form factor">{orDash(mem?.form_factor)}</SpecRow>
-          <SpecRow label="Rated speed">{formatMhz(mem?.speed_mhz)}</SpecRow>
-          <SpecRow label="Configured speed">{formatMhz(mem?.configured_speed_mhz)}</SpecRow>
-        </HwCard>
+          subtitle={memorySubtitle(mem)}
+          metric={mem ? formatBytes(mem.size_bytes) : "—"}
+          bar="full"
+          stats={[
+            { value: countText(mem?.modules), label: "Modules" },
+            { value: formatMt(memSpeed), label: "MT/s" },
+          ]}
+        />
+        <SummaryCard
+          icon={HardDrive}
+          accent={ACCENT.storage}
+          title="Storage"
+          subtitle={disk ? brandModel(disk.brand, disk.model) : "—"}
+          metric={disk ? formatBytes(disk.capacity_bytes) : "—"}
+          bar="full"
+          stats={[
+            { value: disk ? disk.kind.toUpperCase() : "—", label: "Type" },
+            { value: orDash(disk?.interface_type), label: "Interface" },
+            { value: disk?.partitions != null ? String(disk.partitions) : "—", label: "Partitions" },
+          ]}
+        />
+        <SummaryCard
+          icon={Gpu}
+          accent={ACCENT.gpu}
+          title="GPU"
+          subtitle={gpu ? brandModel(gpu.brand, gpu.model) : "No GPU detected"}
+          metric={gpu?.memory_bytes != null ? formatBytes(gpu.memory_bytes) : "—"}
+          bar="none"
+          stats={[
+            { value: gpu ? gpuMemoryKind(gpu) : "—", label: "Memory" },
+            { value: gpu?.cuda_cores != null ? gpu.cuda_cores.toLocaleString() : "—", label: "CUDA" },
+            {
+              value: gpu?.tensor_cores != null ? gpu.tensor_cores.toLocaleString() : "—",
+              label: "Tensor",
+            },
+          ]}
+        />
+      </div>
 
-        {inv && <DiskCards disks={inv.disks} kind="ssd" title="SSD" />}
-        {inv && <DiskCards disks={inv.disks} kind="hdd" title="HDD" />}
-
-        <GpuCards gpus={inv?.gpus ?? []} temps={gpuTemps} />
-
-        <HwCard
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DetailCard
+          icon={Cpu}
+          accent={ACCENT.cpu}
+          title="Processor"
+          rows={[
+            { label: "Model", value: brandModel(cpu?.brand ?? "", cpu?.model ?? "") },
+            { label: "Base Speed", value: formatMhz(cpu?.base_speed_mhz) },
+            { label: "Cores", value: countText(cpu?.physical_cores) },
+            { label: "Logical Processors", value: countText(cpu?.logical_processors) },
+            {
+              label: "Temperature",
+              value:
+                cpuTemp === "—" ? (
+                  "—"
+                ) : (
+                  <span className="rounded-full bg-sky-500/20 px-2.5 py-0.5 text-xs font-medium text-sky-300">
+                    {cpuTemp}
+                  </span>
+                ),
+            },
+          ]}
+        />
+        <DetailCard
+          icon={MemoryStick}
+          accent={ACCENT.memory}
+          title="Memory"
+          action={{ to: "/system/memory", label: "View Memory Details" }}
+          rows={[
+            { label: "Total Size", value: mem ? formatBytes(mem.size_bytes) : "—" },
+            { label: "Type", value: orDash(mem?.memory_type) },
+            { label: "Form Factor", value: orDash(mem?.form_factor) },
+            { label: "Modules", value: countText(mem?.modules) },
+            {
+              label: "Capacity per Module",
+              value: mem?.module_size_bytes != null ? formatBytes(mem.module_size_bytes) : "—",
+            },
+            { label: "Configured Speed", value: formatMemMhz(mem?.configured_speed_mhz) },
+            { label: "Rated Speed", value: formatMemMhz(mem?.speed_mhz) },
+          ]}
+        />
+        {disks.length === 0 ? (
+          <DetailCard
+            icon={HardDrive}
+            accent={ACCENT.storage}
+            title="Storage"
+            rows={[
+              { label: "Model", value: "—" },
+              { label: "Capacity", value: "—" },
+            ]}
+          />
+        ) : (
+          disks.map((d, i) => (
+            <DetailCard
+              key={`${d.kind}-${i}-${d.model}`}
+              icon={HardDrive}
+              accent={ACCENT.storage}
+              title={disks.length > 1 ? `Storage ${i + 1}` : "Storage"}
+              action={{
+                to: d.kind === "hdd" ? "/system/hdd" : "/system/ssd",
+                label: "View Storage Details",
+              }}
+              rows={[
+                { label: "Model", value: brandModel(d.brand, d.model) },
+                { label: "Capacity", value: formatBytes(d.capacity_bytes) },
+                { label: "Interface", value: orDash(d.interface_type) },
+                { label: "Media Type", value: orDash(d.media_type) },
+                { label: "Partitions", value: d.partitions != null ? String(d.partitions) : "—" },
+                { label: "Firmware", value: orDash(d.firmware_revision) },
+                { label: "Serial Number", value: orDash(d.serial_number) },
+              ]}
+            />
+          ))
+        )}
+        {gpus.length === 0 ? (
+          <DetailCard
+            icon={Gpu}
+            accent={ACCENT.gpu}
+            title="Graphics"
+            rows={[{ label: "Adapter", value: "No GPU detected" }]}
+          />
+        ) : (
+          gpus.map((g, i) => {
+            const kind = gpuMemoryKind(g);
+            const memText = g.memory_bytes != null ? formatBytes(g.memory_bytes) : "—";
+            return (
+              <DetailCard
+                key={`gpu-${i}-${g.model}`}
+                icon={Gpu}
+                accent={ACCENT.gpu}
+                title={gpus.length > 1 ? `Graphics ${i + 1}` : "Graphics"}
+                rows={[
+                  { label: "Adapter", value: brandModel(g.brand, g.model) },
+                  { label: "Dedicated Memory", value: kind === "Dedicated" ? memText : "—" },
+                  { label: "Shared Memory", value: kind === "Shared" ? memText : "—" },
+                  {
+                    label: "CUDA Cores",
+                    value: g.cuda_cores != null ? g.cuda_cores.toLocaleString() : "—",
+                  },
+                  {
+                    label: "Tensor Cores",
+                    value: g.tensor_cores != null ? g.tensor_cores.toLocaleString() : "—",
+                  },
+                  { label: "Temperature", value: gpuTemps[i]?.value ?? "—" },
+                ]}
+              />
+            );
+          })
+        )}
+        <DetailCard
+          icon={CircuitBoard}
+          accent={ACCENT.board}
           title="Motherboard"
-          brand={mb?.brand ?? ""}
-          model={mb?.model ?? ""}
-        >
-          <SpecRow label="RAM slots">
-            {mb?.ram_slots != null ? String(mb.ram_slots) : "—"}
-          </SpecRow>
-        </HwCard>
+          rows={[
+            { label: "Manufacturer", value: orDash(mb?.brand) },
+            { label: "Model", value: orDash(mb?.model) },
+            { label: "RAM Slots", value: mb?.ram_slots != null ? String(mb.ram_slots) : "—" },
+          ]}
+        />
       </div>
     </div>
   );

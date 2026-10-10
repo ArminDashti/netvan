@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
+import electron from "vite-plugin-electron/simple";
 import path from "path";
 
 const base = process.env.VITE_BASE_PATH || "/";
@@ -14,11 +15,25 @@ const apiProxy = {
   ws: true,
 };
 
+const isElectron =
+  process.env.VITE_ELECTRON === "1" ||
+  !!process.env.ELECTRON ||
+  process.env.VITE_USER_NODE_ENV === "electron" ||
+  process.env.NODE_ENV === "electron";
+
 export default defineConfig({
   base,
   plugins: [
     react(),
     tailwindcss(),
+    ...(isElectron
+      ? [
+          electron({
+            main: { entry: "electron/main.ts" },
+            preload: { input: "electron/preload.ts" },
+          }),
+        ]
+      : []),
     VitePWA({
       registerType: "autoUpdate",
       strategies: "injectManifest",

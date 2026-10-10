@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import netvanMark from "@/assets/brand/netvan-mark.png";
 import {
-  Activity,
   AppWindow,
   ChevronDown,
   Cpu,
@@ -140,7 +140,20 @@ export function AppShell() {
         className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-card)]/70 backdrop-blur"
       >
         <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-4">
-          <Activity className="h-5 w-5 text-[var(--color-primary)]" />
+          <span
+            aria-hidden="true"
+            className="block h-6 w-8 shrink-0 bg-[var(--color-primary)]"
+            style={{
+              WebkitMaskImage: `url(${netvanMark})`,
+              maskImage: `url(${netvanMark})`,
+              WebkitMaskSize: "contain",
+              maskSize: "contain",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+              WebkitMaskPosition: "center",
+              maskPosition: "center",
+            }}
+          />
           <div>
             <div className="text-sm font-semibold tracking-wide">Netvan</div>
             <div className="text-[11px] text-[var(--color-muted-foreground)]">

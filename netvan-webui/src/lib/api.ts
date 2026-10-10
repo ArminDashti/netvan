@@ -1,7 +1,25 @@
 /** Empty = same origin (Vite proxies /api → netvan-api in dev). Override with VITE_NETVAN_API_URL. */
-export const API_BASE =
-  (import.meta.env.VITE_NETVAN_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+function resolveApiBase(): string {
+  const env = (import.meta.env.VITE_NETVAN_API_URL as string | undefined)?.trim();
+  if (env) return env.replace(/\/$/, "");
+
+  // Electron desktop wrapper: ask the main process for the configured API URL
+  // (respects --api-url=<host:port> and NETVAN_API_URL). Falls back to the
+  // default if the bridge is unavailable (e.g. running the built PWA in a
+  // browser).
+  if (typeof window !== "undefined" && window.netvan?.getApiUrl) {
+    try {
+      const cached = window.netvan.getApiUrlSync?.();
+      if (cached) return cached.replace(/\/$/, "");
+    } catch {
+      // ignore synchronous bridge failures; async fallback below
+    }
+  }
+
+  return (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+}
+
+export const API_BASE = resolveApiBase();
 
 export type HistoryRange =
   | "today"
@@ -195,6 +213,16 @@ export interface ThermalSensor {
 
 export interface ThermalSnapshot {
   sensors: ThermalSensor[];
+}
+
+export interface AppUsageRow {
+  process_name: string;
+  process_path: string | null;
+  remote_ip: string | null;
+  host: string | null;
+  bytes_in: number;
+  bytes_out: number;
+  nic_id: string | null;
 }
 
 export interface ServiceStatus {
@@ -518,17 +546,14 @@ export async function healthCheck(): Promise<boolean> {
 }
 
 export function toolsWsUrl(): string {
-  const prefix = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+  // In the browser PWA the API is same-origin (proxied /api), so use the
+  // page origin. In Electron the API is on a separate host:port, so use
+  // API_BASE directly (it already resolves to http://127.0.0.1:8000).
+  const base = API_BASE && /^https?:\/\//.test(API_BASE) ? API_BASE : "";
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:8001";
-  const absolute = import.meta.env.VITE_NETVAN_API_URL
-    ? String(import.meta.env.VITE_NETVAN_API_URL)
-    : origin;
-  const u = new URL(absolute, origin);
+    base || (typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:8001");
+  const u = new URL("/api/ws/tools", origin);
   u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
-  u.pathname = `${prefix}/api/ws/tools`;
-  u.search = "";
-  u.hash = "";
   return u.toString();
 }
 
