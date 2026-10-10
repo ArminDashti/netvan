@@ -284,7 +284,8 @@ function Build-Api {
   Push-Location $ApiRoot
   try {
     Write-Host "==> cargo build -p netvan-api --release --target $target"
-    cargo build -p netvan-api --release --target $target
+    # Out-Host keeps native output off the pipeline so the function returns only the path.
+    cargo build -p netvan-api --release --target $target | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "cargo build failed ($LASTEXITCODE)" }
   } finally {
     Pop-Location
@@ -315,17 +316,17 @@ function Build-WebUi {
     if (-not (Test-Path -LiteralPath (Join-Path $WebUiRoot 'node_modules'))) {
       if (Test-Path -LiteralPath $packageLock) {
         Write-Host '==> npm ci (webui dependencies)'
-        npm ci
+        npm ci | Out-Host
       } else {
         Write-Host '==> npm install (webui dependencies)'
-        npm install
+        npm install | Out-Host
       }
       if ($LASTEXITCODE -ne 0) {
         throw "WebUI dependency installation failed ($LASTEXITCODE)"
       }
     }
     Write-Host '==> npm run build (webui)'
-    npm run build
+    npm run build | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "npm run build failed ($LASTEXITCODE)" }
   } finally {
     Pop-Location
