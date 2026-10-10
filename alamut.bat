@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0netvan.ps1" %*
+powershell -ExecutionPolicy Bypass -File "%~dp0alamut.ps1" %*

@@ -22,8 +22,8 @@ fn main() {
         "LegalCopyright",
         "Copyright (c) Dashti Technologies LLC. All rights reserved.",
     );
-    res.set("OriginalFilename", "netvan-cli.exe");
-    res.set("InternalName", "netvan-cli.exe");
+    res.set("OriginalFilename", "alamut-cli.exe");
+    res.set("InternalName", "alamut-cli.exe");
     if let Err(e) = res.compile() {
         println!("cargo:warning=version resource compile failed ({e}); continuing without it");
     }

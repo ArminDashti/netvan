@@ -1,4 +1,4 @@
-//! `netvan-cli` — interactive geek-lovely TUI + headless CLI commands.
+//! `alamut-cli` — interactive geek-lovely TUI + headless CLI commands.
 //!
 //! TUI (default, no subcommand): full-screen colorful dashboard.
 //! Headless: `overview | cpu | memory | disk | network | os |
@@ -16,12 +16,12 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "netvan-cli",
+    name = "alamut-cli",
     version,
-    about = "Netvan CLI — geek-lovely terminal dashboard + headless commands",
+    about = "Alamut CLI — geek-lovely terminal dashboard + headless commands",
     long_about = "Interactive TUI (default) plus headless commands that work despite the GUI: \
                   overview, cpu, memory, disk, network, os, machine-info and live views. \
-                  Talks JSON-RPC to a running Netvan API (netvan run / netvan service start)."
+                  Talks JSON-RPC to a running Netvan API (alamut run / alamut service start)."
 )]
 struct Args {
     /// API base URL (overrides NETVAN_API_URL)
@@ -56,7 +56,7 @@ enum Command {
     },
     /// CPU snapshot. `cpu live` streams.
     Cpu {
-        /// Stream (`netvan cpu live`)
+        /// Stream (`alamut cpu live`)
         #[arg(default_value = None)]
         live_word: Option<String>,
         /// Stream
@@ -110,7 +110,7 @@ enum Command {
     /// Static hardware inventory (`machine info`)
     #[command(name = "machine-info", alias = "machine")]
     MachineInfo {
-        /// Accepts the trailing `info` in `netvan machine info`
+        /// Accepts the trailing `info` in `alamut machine info`
         #[arg(default_value = None)]
         extra: Option<String>,
         /// Machine-readable JSON output
@@ -173,7 +173,7 @@ async fn main() -> Result<()> {
             Command::MachineInfo { json, .. } => cmds::cmd_machine(&api, json).await,
             Command::Live { interval_ms } => cmds::cmd_live(api, interval_ms).await,
             Command::Version => {
-                println!("netvan-cli {}", env!("CARGO_PKG_VERSION"));
+                println!("alamut-cli {}", env!("CARGO_PKG_VERSION"));
                 Ok(())
             }
         }

@@ -24,6 +24,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "alamut-cli"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "crossterm",
+ "netvan-core",
+ "ratatui",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tokio",
+ "winres",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1166,24 +1184,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "windows-service",
- "winres",
-]
-
-[[package]]
-name = "netvan-cli"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "crossterm",
- "netvan-core",
- "ratatui",
- "reqwest",
- "serde",
- "serde_json",
- "sysinfo",
- "tokio",
  "winres",
 ]
 

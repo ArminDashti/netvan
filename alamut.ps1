@@ -1,21 +1,21 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Netvan CLI - manage the Netvan service + headless stats (works despite the GUI).
+  Alamut CLI - manage the Netvan service + headless stats (works despite the GUI).
 
 .DESCRIPTION
   Global CLI wrapper. Service commands delegate to netvan-api.exe;
   stats commands (overview/cpu/memory/disk/network/os/machine/live)
-  delegate to netvan-cli.exe (JSON-RPC, with local fallback when the
+  delegate to alamut-cli.exe (JSON-RPC, with local fallback when the
   API is down). Native wrapper commands: doctor/version/remove/update/webui/help.
 
 .EXAMPLE
-  netvan service status
-  netvan overview
-  netvan cpu live
-  netvan machine info
-  netvan live
-  netvan webui
+  alamut service status
+  alamut overview
+  alamut cpu live
+  alamut machine info
+  alamut live
+  alamut webui
 #>
 
 [CmdletBinding()]
@@ -53,12 +53,12 @@ function Get-NetvanApiExe {
   return $null
 }
 
-function Get-NetvanCliExe {
+function Get-AlamutCliExe {
   $candidates = @(
-    (Join-Path $ApiRoot 'target\release\netvan-cli.exe'),
-    (Join-Path $ApiRoot 'target\debug\netvan-cli.exe'),
-    (Join-Path $ApiRoot 'target\x86_64-pc-windows-gnu\release\netvan-cli.exe'),
-    (Join-Path $ApiRoot 'target\x86_64-pc-windows-msvc\release\netvan-cli.exe')
+    (Join-Path $ApiRoot 'target\release\alamut-cli.exe'),
+    (Join-Path $ApiRoot 'target\debug\alamut-cli.exe'),
+    (Join-Path $ApiRoot 'target\x86_64-pc-windows-gnu\release\alamut-cli.exe'),
+    (Join-Path $ApiRoot 'target\x86_64-pc-windows-msvc\release\alamut-cli.exe')
   )
   foreach ($c in $candidates) {
     if (Test-Path -LiteralPath $c) { return (Resolve-Path -LiteralPath $c).Path }
@@ -86,9 +86,9 @@ function Get-ApiBase {
 
 function Show-Help {
   $v = Get-WrapperVersion
-  Write-Host "◆ NETVAN CLI v$v - service + headless stats (works despite the GUI)"
+  Write-Host "◆ ALAMUT CLI v$v - service + headless stats (works despite the GUI)"
   Write-Host ""
-  Write-Host "Usage: netvan <command> [args]"
+  Write-Host "Usage: alamut <command> [args]"
   Write-Host ""
   Write-Host "Service:"
   Write-Host "  service status    Show service install/running status"
@@ -124,12 +124,12 @@ function Show-Help {
   Write-Host "  tui               Interactive colorful terminal dashboard"
   Write-Host ""
   Write-Host "Examples:"
-  Write-Host "  netvan service status"
-  Write-Host "  netvan overview --json"
-  Write-Host "  netvan cpu live"
-  Write-Host "  netvan machine info"
-  Write-Host "  netvan live"
-  Write-Host "  netvan webui"
+  Write-Host "  alamut service status"
+  Write-Host "  alamut overview --json"
+  Write-Host "  alamut cpu live"
+  Write-Host "  alamut machine info"
+  Write-Host "  alamut live"
+  Write-Host "  alamut webui"
 }
 
 function Invoke-Doctor {
@@ -145,11 +145,11 @@ function Invoke-Doctor {
     $fail++
   }
 
-  $cliExe = Get-NetvanCliExe
+  $cliExe = Get-AlamutCliExe
   if ($cliExe) {
-    Write-Host "[OK] netvan-cli.exe found: $cliExe" -ForegroundColor Green
+    Write-Host "[OK] alamut-cli.exe found: $cliExe" -ForegroundColor Green
   } else {
-    Write-Host "[INFO] netvan-cli.exe not found. Run: cd netvan-api; cargo build --release -p netvan-cli" -ForegroundColor Yellow
+    Write-Host "[INFO] alamut-cli.exe not found. Run: cd netvan-api; cargo build --release -p alamut-cli" -ForegroundColor Yellow
   }
 
   $svc = Get-Service -Name 'Netvan' -ErrorAction SilentlyContinue
@@ -183,7 +183,7 @@ function Invoke-Doctor {
       Write-Host "[INFO] API responded oddly at $base" -ForegroundColor Yellow
     }
   } catch {
-    Write-Host "[INFO] API not reachable at $base (start it: netvan run / netvan service start)" -ForegroundColor Yellow
+    Write-Host "[INFO] API not reachable at $base (start it: alamut run / alamut service start)" -ForegroundColor Yellow
   }
 
   # hosts entry for netvan.local
@@ -215,14 +215,14 @@ function Invoke-Version {
   } else {
     Write-Host "  netvan-api: not built"
   }
-  $cliExe = Get-NetvanCliExe
+  $cliExe = Get-AlamutCliExe
   if ($cliExe) {
     try {
       $out = & $cliExe version 2>$null
-      if ($LASTEXITCODE -eq 0 -and $out) { Write-Host "  $out" } else { Write-Host "  netvan-cli: $cliExe" }
-    } catch { Write-Host "  netvan-cli: $cliExe" }
+      if ($LASTEXITCODE -eq 0 -and $out) { Write-Host "  $out" } else { Write-Host "  alamut-cli: $cliExe" }
+    } catch { Write-Host "  alamut-cli: $cliExe" }
   } else {
-    Write-Host "  netvan-cli: not built"
+    Write-Host "  alamut-cli: not built"
   }
 }
 
@@ -255,7 +255,7 @@ function Invoke-Remove {
       }
     }
   } else {
-    Write-Host "Tip: 'netvan remove --purge' also deletes the data directory."
+    Write-Host "Tip: 'alamut remove --purge' also deletes the data directory."
   }
   exit $code
 }
@@ -269,7 +269,7 @@ function Invoke-Update {
 
   Push-Location $ApiDir
   try {
-    cargo build --release -p netvan-api -p netvan-cli
+    cargo build --release -p netvan-api -p alamut-cli
     if ($LASTEXITCODE -ne 0) { Write-Host "cargo build failed." -ForegroundColor Red; exit 1 }
   } finally { Pop-Location }
 
@@ -319,11 +319,11 @@ function Invoke-WebUI {
 
 function Invoke-Cli {
   param([string[]]$CliArgs)
-  $cliExe = Get-NetvanCliExe
+  $cliExe = Get-AlamutCliExe
   if (-not $cliExe) {
-    Write-Host "Error: netvan-cli.exe not found. Build it first:"
+    Write-Host "Error: alamut-cli.exe not found. Build it first:"
     Write-Host "  cd netvan-api"
-    Write-Host "  cargo build --release -p netvan-cli"
+    Write-Host "  cargo build --release -p alamut-cli"
     exit 1
   }
   # Hoist global flags (--plain, --api X, --poll-ms X) ahead of the subcommand.
@@ -405,7 +405,7 @@ switch ($Command) {
   'network'  { Invoke-Cli (@('network') + $Args) }
   'os'       { Invoke-Cli (@('os') + $Args) }
   'machine'  {
-    # `netvan machine info` -> cli `machine-info` (extra word tolerated)
+    # `alamut machine info` -> cli `machine-info` (extra word tolerated)
     Invoke-Cli (@('machine-info') + $Args)
   }
   'machine-info' { Invoke-Cli (@('machine-info') + $Args) }

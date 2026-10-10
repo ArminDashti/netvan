@@ -537,11 +537,11 @@ fn body(f: &mut Frame, app: &mut App, area: Rect) {
                 )),
                 Line::from(""),
                 Line::from(Span::styled(
-                    "  Start it with:  netvan run   (or netvan service start)",
+                    "  Start it with:  alamut run   (or alamut service start)",
                     Style::default().fg(theme::SLATE),
                 )),
                 Line::from(Span::styled(
-                    "  Override the endpoint with:  netvan-cli --api http://127.0.0.1:8000",
+                    "  Override the endpoint with:  alamut-cli --api http://127.0.0.1:8000",
                     Style::default().fg(theme::DIM),
                 )),
             ])

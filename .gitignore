@@ -194,7 +194,7 @@ netvan-api/target/x86_64-pc-windows-msvc/release/deps/netvan_api.pdb
 .codegraph/codegraph.db
 .gitnexus/lbug
 netvan-api/target/debug/netvan_cli.pdb
-netvan-api/target/debug/netvan-cli.exe
+netvan-api/target/debug/alamut-cli.exe
 netvan-api/target/debug/build/libsqlite3-sys-d1c707e74e366388/build_script_build-d1c707e74e366388.exe
 netvan-api/target/debug/build/libsqlite3-sys-d1c707e74e366388/build-script-build.exe
 netvan-api/target/debug/build/libsqlite3-sys-fcc7cce8c108877a/build_script_build-fcc7cce8c108877a.pdb
@@ -386,7 +386,7 @@ netvan-api/target/debug/incremental/netvan_core-222nn8136yn6q/s-hmrqcl20pw-1g4qw
 netvan-api/target/debug/incremental/netvan_core-2zjm9iovvd3mf/s-hmrtz568tr-11aazjd-1t17tyw4qtztkjunfsb2ti21d/dep-graph.bin
 netvan-api/target/debug/incremental/netvan_core-2zjm9iovvd3mf/s-hmrtz568tr-11aazjd-1t17tyw4qtztkjunfsb2ti21d/query-cache.bin
 netvan-api/target/release/netvan-api.exe
-netvan-api/target/release/netvan-cli.exe
+netvan-api/target/release/alamut-cli.exe
 netvan-api/target/release/deps/libaxum-31a2f562c68ee673.rlib
 netvan-api/target/release/deps/libaxum-31a2f562c68ee673.rmeta
 netvan-api/target/release/deps/libaxum-ad0b68c10a7c5d48.rlib

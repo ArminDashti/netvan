@@ -1,23 +1,23 @@
-# Netvan CLI
+# Alamut CLI
 
-The `netvan` CLI provides a unified interface for managing the Netvan Windows service
-plus an interactive, colorful terminal dashboard (`netvan tui`).
+The `alamut` CLI provides a unified interface for managing the Netvan Windows service
+plus an interactive, colorful terminal dashboard (`alamut tui`).
 
 ## Interactive TUI
 
-`netvan-cli` is a full-screen, modern-colorful terminal UI (ratatui) that reads live
+`alamut-cli` is a full-screen, modern-colorful terminal UI (ratatui) that reads live
 data from a running Netvan API over JSON-RPC (`POST /api/rpc`).
 
 ### Launch
 
 ```cmd
-:: via the wrapper (finds target\release\netvan-cli.exe)
-netvan tui
+:: via the wrapper (finds target\release\alamut-cli.exe)
+alamut tui
 
 :: or directly
-netvan-cli
-netvan-cli --api http://127.0.0.1:8000
-netvan-cli --poll-ms 1000
+alamut-cli
+alamut-cli --api http://127.0.0.1:8000
+alamut-cli --poll-ms 1000
 ```
 
 Environment overrides: `NETVAN_API_URL` (or `NETVAN_API_BASE`) for the endpoint,
@@ -27,14 +27,14 @@ Headless connectivity check (prints the overview snapshot as JSON, exit code 1 i
 the API cannot be reached):
 
 ```cmd
-netvan-cli --dump --api http://127.0.0.1:8000
+alamut-cli --dump --api http://127.0.0.1:8000
 ```
 
 Build it:
 
 ```powershell
 cd netvan-api
-cargo build --release -p netvan-cli
+cargo build --release -p alamut-cli
 ```
 
 ### Tabs
@@ -70,16 +70,16 @@ cargo build --release -p netvan-cli
 ### Local (Project Directory)
 Use the CLI directly from the project root:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\netvan.ps1 <command>
+powershell -ExecutionPolicy Bypass -File .\alamut.ps1 <command>
 ```
 
 Or use the batch wrapper:
 ```cmd
-netvan.bat <command>
+alamut.bat <command>
 ```
 
 ### Global Installation
-Run the installation script to add `netvan` to your PATH:
+Run the installation script to add `alamut` to your PATH:
 
 **For current user:**
 ```powershell
@@ -94,42 +94,42 @@ Run the installation script to add `netvan` to your PATH:
 
 After installation, restart your terminal and use:
 ```cmd
-netvan <command>
+alamut <command>
 ```
 
 ## Commands
 
 ### Service Management
-- `netvan service start` - Start the Netvan Windows service
-- `netvan service stop` - Stop the Netvan Windows service
-- `netvan service restart` - Restart the Netvan Windows service
-- `netvan service status` - Show service install/running status
-- `netvan install` - Install the Netvan Windows service
+- `alamut service start` - Start the Netvan Windows service
+- `alamut service stop` - Stop the Netvan Windows service
+- `alamut service restart` - Restart the Netvan Windows service
+- `alamut service status` - Show service install/running status
+- `alamut install` - Install the Netvan Windows service
 
 ### App
-- `netvan doctor` - Run diagnostics (binaries, service, API health, data dir, WebUI, hosts entry)
-- `netvan help` - Show help message
-- `netvan version` - Print CLI + service binary versions
-- `netvan remove [--purge]` - Stop + uninstall the service (`--purge` also deletes the data dir)
-- `netvan update` - Rebuild API + CLI + WebUI, restart the service if it was running
-- `netvan webui [--url <url>]` - Open the Web UI in the default browser
+- `alamut doctor` - Run diagnostics (binaries, service, API health, data dir, WebUI, hosts entry)
+- `alamut help` - Show help message
+- `alamut version` - Print CLI + service binary versions
+- `alamut remove [--purge]` - Stop + uninstall the service (`--purge` also deletes the data dir)
+- `alamut update` - Rebuild API + CLI + WebUI, restart the service if it was running
+- `alamut webui [--url <url>]` - Open the Web UI in the default browser
 
 ### Stats (headless, work despite the GUI; add `--json` for automation)
-- `netvan overview` - Service + cpu + memory + disks + NICs
-- `netvan cpu` - CPU snapshot (brand, load, per-core)
-- `netvan memory` - Memory snapshot
-- `netvan disk` - Disk volumes
-- `netvan network` - NIC table (link, IPv4, live rx/tx)
-- `netvan os` - OS / host / API reachability
-- `netvan machine info` - Static hardware inventory (cpu/mem/disks/gpus/board)
+- `alamut overview` - Service + cpu + memory + disks + NICs
+- `alamut cpu` - CPU snapshot (brand, load, per-core)
+- `alamut memory` - Memory snapshot
+- `alamut disk` - Disk volumes
+- `alamut network` - NIC table (link, IPv4, live rx/tx)
+- `alamut os` - OS / host / API reachability
+- `alamut machine info` - Static hardware inventory (cpu/mem/disks/gpus/board)
 
 ### Live (streaming, Ctrl+C stops, `--interval-ms N`)
-- `netvan cpu live` - Stream CPU load
-- `netvan memory live` - Stream memory usage
-- `netvan disk live` - Stream disk usage
-- `netvan network live` - Stream NIC throughput
-- `netvan live` - Full live view (cpu + memory + network)
-- `netvan tui` - Interactive colorful terminal dashboard
+- `alamut cpu live` - Stream CPU load
+- `alamut memory live` - Stream memory usage
+- `alamut disk live` - Stream disk usage
+- `alamut network live` - Stream NIC throughput
+- `alamut live` - Full live view (cpu + memory + network)
+- `alamut tui` - Interactive colorful terminal dashboard
 
 Style: geek-lovely 24-bit color + nerd glyphs + block meters.
 Disable with `--plain` or `NO_COLOR=1`. `cpu`/`memory`/`disk`/`os`
@@ -139,27 +139,27 @@ fall back to local collection when the API is down.
 
 ```cmd
 # Install the service
-netvan install
+alamut install
 
 # Check service status
-netvan service status
+alamut service status
 
 # Start the service
-netvan service start
+alamut service start
 
 # Run in foreground for development
-netvan run
+alamut run
 
 # Run diagnostics
-netvan doctor
+alamut doctor
 
 # Show help
-netvan help
+alamut help
 ```
 
 ## How It Works
 
-The `netvan` CLI is a wrapper that delegates to the `netvan-api` binary. It:
+The `alamut` CLI is a wrapper that delegates to the `netvan-api` binary. It:
 1. Locates the `netvan-api.exe` in the project's build directory
 2. Delegates service commands to the native Windows service implementation
 3. Provides additional convenience commands like `doctor` for diagnostics

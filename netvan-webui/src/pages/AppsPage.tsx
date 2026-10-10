@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HistoryFilter, customToTs } from "@/components/HistoryFilter";
 import { UsagePeriodGrid } from "@/components/UsagePeriodGrid";
-import { rpc, type AppSettings, type HistoryRange, type NicInfo } from "@/lib/api";
+import { rpc, type AppSettings, type HistoryRange } from "@/lib/api";
 import { aggregateGridSum, buildPeriodColumns } from "@/lib/latencyPeriod";
-import { pickHighestTrafficNic } from "@/lib/pickHighestTrafficNic";
 
 type SeriesPoint = {
   hour_ts: number;
@@ -20,8 +19,6 @@ export function AppsPage() {
   const [range, setRange] = useState<HistoryRange>("today");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [nics, setNics] = useState<NicInfo[]>([]);
-  const [nicId, setNicId] = useState("");
   const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -37,26 +34,16 @@ export function AppsPage() {
         start_ts,
         end_ts,
         group_by: "app",
-        nic_id: nicId || null,
       },
     });
     setSeries(usage.data);
   };
 
   useEffect(() => {
-    rpc<{ type: "Nics"; data: NicInfo[] }>({ method: "ListNics" }).then((r) => {
-      const list = r.data.filter((n) => n.media_type !== "Loopback");
-      setNics(list);
-      const best = pickHighestTrafficNic(list);
-      if (best) setNicId(best);
-    });
-  }, []);
-
-  useEffect(() => {
     load().catch(console.error);
     const id = setInterval(() => load().catch(console.error), 10000);
     return () => clearInterval(id);
-  }, [range, customStart, customEnd, nicId]);
+  }, [range, customStart, customEnd]);
 
   useEffect(() => {
     if (!ctxMenu) return;
@@ -135,18 +122,6 @@ export function AppsPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] px-2 text-sm"
-          value={nicId}
-          onChange={(e) => setNicId(e.target.value)}
-        >
-          <option value="">All NICs</option>
-          {nics.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.name}
-            </option>
-          ))}
-        </select>
         <HistoryFilter
           value={range}
           onChange={setRange}

@@ -1,5 +1,5 @@
 [package]
-name = "netvan-cli"
+name = "alamut-cli"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 description = "Netvan interactive terminal UI (TUI) — colorful dashboard + network tools"
 
 [[bin]]
-name = "netvan-cli"
+name = "alamut-cli"
 path = "src/main.rs"
 
 [dependencies]

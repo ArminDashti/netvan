@@ -609,6 +609,18 @@ function Invoke-Winsw([string[]]$WinArgs) {
   }
 }
 
+function Ensure-AlamutOnPath {
+  # alamut.bat/alamut.ps1 live in the project root; put it on the user PATH once.
+  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+  $entries = @($userPath -split ';' | Where-Object { $_ })
+  if ($entries -contains $ProjectRoot) {
+    Write-Host "==> alamut already on user PATH ($ProjectRoot)"
+    return
+  }
+  [Environment]::SetEnvironmentVariable('Path', (@($entries + $ProjectRoot) -join ';'), 'User')
+  Write-Host "==> added $ProjectRoot to user PATH (open a new terminal to use 'alamut')"
+}
+
 function Ensure-DataDir {
   if (-not (Test-Path -LiteralPath $DataDir)) {
     New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
@@ -702,6 +714,8 @@ Write-State @{
   mode         = $(if ($already) { 'update' } else { 'fresh' })
   updated_at   = (Get-Date).ToString('s')
 }
+
+Ensure-AlamutOnPath
 
 Write-Host "Done ($($(if ($already) { 'update' } else { 'fresh' }))): single service '$ServiceName'"
 Write-Host "  API   http://127.0.0.1:$ApiPort"

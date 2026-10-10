@@ -872,7 +872,7 @@ pub async fn cmd_network_live(api: ApiClient, interval_ms: u64) -> Result<()> {
             .and_then(|h| h.block_on(api.call(RpcRequest::ListNics)).ok());
         let list = match list {
             Some(RpcResponse::Nics(v)) => v,
-            _ => anyhow::bail!("API unreachable — start it with `netvan run`"),
+            _ => anyhow::bail!("API unreachable — start it with `alamut run`"),
         };
         println!(
             "    {:24} {:6} {:>12} {:>12}",
