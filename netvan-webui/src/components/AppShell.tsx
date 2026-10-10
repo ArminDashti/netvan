@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { healthCheck, rpc, type AppSettings } from "@/lib/api";
 import { applyTheme } from "@/lib/theme";
+import { Dialog } from "@/components/ui/dialog";
+import { SettingsPage } from "@/pages/SettingsPage";
 
 const NAV_BEFORE_SYSTEM = [
   { to: "/", label: "Dashboard", icon: Gauge },
@@ -29,8 +31,6 @@ const NAV_AFTER_LATENCY = [
   { to: "/apps", label: "Apps", icon: AppWindow },
   { to: "/hosts", label: "IP / Host", icon: Globe },
 ];
-
-const BOTTOM_NAV = [{ to: "/settings", label: "Settings", icon: Settings }];
 
 const TOOL_CHILDREN = [
   { to: "/tools/nslookup", label: "nslookup" },
@@ -87,6 +87,7 @@ export function AppShell() {
   const [toolsOpen, setToolsOpen] = useState(onToolsRoute);
   const [latencyOpen, setLatencyOpen] = useState(onLatencyRoute);
   const [systemOpen, setSystemOpen] = useState(onSystemRoute);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [apiOk, setApiOk] = useState<boolean | null>(null);
   const [hasHdd, setHasHdd] = useState(false);
 
@@ -278,9 +279,14 @@ export function AppShell() {
             )}
           </div>
 
-          {BOTTOM_NAV.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </button>
         </nav>
         <div className="border-t border-[var(--color-border)] p-3 text-[11px] text-[var(--color-muted-foreground)]">
           <div className="mb-1 flex items-center gap-1.5">
@@ -298,6 +304,9 @@ export function AppShell() {
       <main className="min-w-0 flex-1 overflow-auto p-5">
         <Outlet />
       </main>
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen} className="max-w-4xl">
+        <SettingsPage />
+      </Dialog>
     </div>
   );
 }

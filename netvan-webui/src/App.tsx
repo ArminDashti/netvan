@@ -9,7 +9,6 @@ import { HttpLatencyPage } from "@/pages/latency/HttpLatencyPage";
 import { SpeedtestPage } from "@/pages/SpeedtestPage";
 import { AppsPage } from "@/pages/AppsPage";
 import { IpHostPage } from "@/pages/IpHostPage";
-import { SettingsPage } from "@/pages/SettingsPage";
 import { ToolsLayout } from "@/pages/tools/ToolsLayout";
 import { NslookupToolPage } from "@/pages/tools/NslookupToolPage";
 import { LatencyToolPage } from "@/pages/tools/LatencyToolPage";
@@ -53,7 +52,6 @@ export default function App() {
             <Route path="ping" element={<Navigate to="/tools/latency" replace />} />
             <Route path="traceroute" element={<TracerouteToolPage />} />
           </Route>
-          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -29,10 +29,11 @@ function Resolve-ApiCargoTarget {
 }
 
 function Find-ApiBinary {
+  param([Parameter(Mandatory = $true)][string]$Target)
+  # Prefer the binary cargo just built for $Target; target\release may be a stale host build.
   $candidates = @(
-    (Join-Path $RepoRoot 'target\release\netvan-api.exe'),
-    (Join-Path $RepoRoot 'target\x86_64-pc-windows-gnu\release\netvan-api.exe'),
-    (Join-Path $RepoRoot 'target\x86_64-pc-windows-msvc\release\netvan-api.exe')
+    (Join-Path $RepoRoot "target\$Target\release\netvan-api.exe"),
+    (Join-Path $RepoRoot 'target\release\netvan-api.exe')
   )
   foreach ($c in $candidates) {
     if (Test-Path -LiteralPath $c) { return (Resolve-Path -LiteralPath $c).Path }
@@ -64,7 +65,7 @@ if ($LASTEXITCODE -ne 0) {
   throw "cargo build failed with exit code $LASTEXITCODE"
 }
 
-$Exe = Find-ApiBinary
+$Exe = Find-ApiBinary -Target $target
 if (-not $Exe) {
   throw "Missing binary under target/*/release/netvan-api.exe"
 }
